@@ -1,0 +1,71 @@
+```
+# ------------------------
+# Node.js / Next.js ignores
+# ------------------------
+
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# logs
+*.log
+
+# compressed files
+*.zip
+
+# ------------------------
+# Python ignores
+# ------------------------
+
+# byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# virtual environments
+.env/
+# env files
+.env
+_env
+
+.venv/
+venv/
+ENV/
+
+# distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# testing
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+
+# ------------------------
+# OS / Editor ignores
+# ------------------------
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDEs/editors
+.vscode/
+.idea/
+*.swp
+```
