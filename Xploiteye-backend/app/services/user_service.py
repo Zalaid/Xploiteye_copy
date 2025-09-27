@@ -45,7 +45,6 @@ class UserService:
                 name=user_data.name,
                 display_name=user_data.display_name,
                 hashed_password=hashed_password,
-                is_verified=True,  # Auto-verify for development
                 role=role,
                 active_jwt_identifier=None,
                 created_at=datetime.utcnow(),
@@ -64,7 +63,6 @@ class UserService:
                 username=created_user["username"],
                 name=created_user["name"],
                 display_name=created_user["display_name"],
-                is_verified=created_user["is_verified"],
                 role=created_user["role"],
                 created_at=created_user["created_at"]
             )
@@ -182,7 +180,6 @@ class UserService:
                     username=updated_user_doc["username"],
                     name=updated_user_doc["name"],
                     display_name=updated_user_doc["display_name"],
-                    is_verified=updated_user_doc["is_verified"],
                     role=updated_user_doc["role"],
                     created_at=updated_user_doc["created_at"]
                 )
@@ -220,7 +217,6 @@ class UserService:
                 "name": user_data.name,
                 "display_name": user_data.display_name,
                 "hashed_password": SecurityUtils.hash_password("google_oauth_placeholder"),  # Placeholder for OAuth users
-                "is_verified": True,  # Google users are pre-verified
                 "role": "user",
                 "google_id": google_id,
                 "oauth_provider": "google",

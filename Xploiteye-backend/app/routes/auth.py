@@ -36,55 +36,10 @@ async def check_username_availability(
         "message": "Username is available" if existing_user is None else "Username is already taken"
     }
 
-@router.post(
-    "/register",
-    response_model=MessageResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
-    description="Create a new user account with email and password. Email verification is required."
-)
-async def register_user(
-    user_data: UserCreate,
-    user_service: UserService = Depends(get_user_service)
-):
-    """
-    Register a new user
-    
-    - **email**: Valid email address
-    - **username**: Unique username (3-50 characters)
-    - **display_name**: Display name for the user  
-    - **password**: Password (minimum 8 characters)
-    """
-    try:
-        # Set default name if not provided or empty
-        if not user_data.name.strip():
-            user_data.name = user_data.username
-            
-        # Set default display name if not provided
-        if not user_data.display_name.strip():
-            user_data.display_name = user_data.name or user_data.username
-        
-        # Create user
-        created_user = await user_service.create_user(user_data)
-        
-        # Simulate email verification (print to console as specified in requirements)
-        verification_link = f"http://localhost:8000/auth/verify?token=mock_token_{created_user.id}"
-        print(f"Email Verification Link: {verification_link}")
-        
-        return MessageResponse(
-            message="Registration successful. Please check your email to verify your account."
-        )
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed. Please try again."
-        )
+# Registration is now handled by email_verification.py routes
+# /auth/register -> sends verification email
+# /auth/verify-email -> completes registration
+# /auth/resend-verification -> resends verification code
 
 @router.post(
     "/login",
@@ -165,7 +120,6 @@ async def get_current_user_info(
         "username": current_user.username,
         "name": current_user.name,
         "display_name": current_user.display_name,
-        "is_verified": current_user.is_verified,
         "role": current_user.role,
         "created_at": current_user.created_at,
         "is_oauth_user": current_user.is_oauth_user,

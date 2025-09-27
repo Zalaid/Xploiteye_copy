@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     vulnx_path: str = Field(default="/home/kali/go/bin/vulnx")
     nmap_path: str = Field(default="/usr/bin/nmap")
 
+    # Email Configuration
+    gmail_username: str = Field(default="")
+    gmail_app_password: str = Field(default="")
+    default_from_email: str = Field(default="")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

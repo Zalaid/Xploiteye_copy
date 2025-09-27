@@ -52,7 +52,6 @@ class UserInDB(UserBase):
     """User model as stored in database"""
     id: Optional[str] = Field(default=None, alias="_id")
     hashed_password: str
-    is_verified: bool = Field(default=False)
     role: str = Field(default="user", description="User role: admin, analyst, user")
     active_jwt_identifier: Optional[str] = Field(default=None)
     google_id: Optional[str] = Field(default=None, description="Google OAuth user ID")
@@ -75,7 +74,6 @@ class UserInDB(UserBase):
 class UserResponse(UserBase):
     """User response model (safe for API responses)"""
     id: str
-    is_verified: bool
     role: str
     created_at: datetime
     

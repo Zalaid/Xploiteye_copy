@@ -248,6 +248,11 @@ interface FormData {
   confirmPassword: string;
 }
 
+interface VerificationData {
+  email: string;
+  code: string;
+}
+
 interface FormErrors {
   name?: string;
   email?: string;
@@ -260,7 +265,7 @@ interface FormErrors {
 
 export default function SignUp() {
   const router = useRouter();
-  const { register, checkUsernameAvailability: authCheckUsername } = useAuth();
+  const { register, checkUsernameAvailability: authCheckUsername, checkAuthStatus } = useAuth();
   
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -278,6 +283,12 @@ export default function SignUp() {
   const [isMounted, setIsMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Email verification states
+  const [showVerificationForm, setShowVerificationForm] = useState(false);
+  const [verificationData, setVerificationData] = useState<VerificationData>({ email: '', code: '' });
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   
   // Password validation states
   const [passwordValidation, setPasswordValidation] = useState({
@@ -553,11 +564,10 @@ export default function SignUp() {
       if (!isMounted) return;
       
       if (result.success) {
-        setSuccessMessage(result.message || 'Registration successful!');
-        // Redirect immediately after showing success message
-        setTimeout(() => {
-          if (isMounted) router.push('/signin');
-        }, 1500);
+        setSuccessMessage(result.message || 'Verification code sent to your email!');
+        // Show verification form instead of redirecting
+        setShowVerificationForm(true);
+        setVerificationData({ email: formData.email, code: '' });
       } else {
         console.error('Registration failed:', result.error || result.validationErrors);
         
@@ -618,6 +628,107 @@ export default function SignUp() {
     }
   };
 
+  const handleVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!verificationData.code || verificationData.code.length !== 6) {
+      setErrors({ general: 'Please enter a valid 6-digit verification code' });
+      return;
+    }
+
+    setIsVerifying(true);
+    setErrors({});
+
+    try {
+      console.log('Sending verification request:', verificationData);
+
+      const response = await fetch('http://localhost:8000/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(verificationData)
+      });
+
+      console.log('Verification response status:', response.status);
+
+      const result = await response.json();
+      console.log('Verification response data:', result);
+
+      if (!isMounted) return;
+
+      if (response.ok) {
+        // Auto-login the user with the returned token
+        if (result.access_token && result.user) {
+          // Store the token in localStorage
+          localStorage.setItem('access_token', result.access_token);
+
+          // Update auth context by calling checkAuthStatus to refresh the auth state
+          if (checkAuthStatus) {
+            await checkAuthStatus();
+          }
+
+          setSuccessMessage('Email verified successfully! Redirecting to dashboard...');
+          setTimeout(() => {
+            if (isMounted) router.push('/dashboard');
+          }, 1500);
+        } else {
+          // Fallback to sign-in page if no token returned
+          setSuccessMessage('Email verified successfully! Redirecting to sign in...');
+          setTimeout(() => {
+            if (isMounted) router.push('/signin');
+          }, 2000);
+        }
+      } else {
+        console.error('Verification failed:', result);
+        setErrors({ general: result.detail || 'Verification failed. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      if (isMounted) setErrors({ general: 'An unexpected error occurred. Please try again.' });
+    } finally {
+      if (isMounted) setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setResendLoading(true);
+    setErrors({});
+
+    try {
+      const response = await fetch('http://localhost:8000/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verificationData.email })
+      });
+
+      const result = await response.json();
+
+      if (!isMounted) return;
+
+      if (response.ok) {
+        setSuccessMessage('New verification code sent to your email!');
+      } else {
+        setErrors({ general: result.detail || 'Failed to resend code. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Resend error:', error);
+      if (isMounted) setErrors({ general: 'An unexpected error occurred. Please try again.' });
+    } finally {
+      if (isMounted) setResendLoading(false);
+    }
+  };
+
+  const handleVerificationCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    // Only allow numbers and limit to 6 characters
+    const numericValue = value.replace(/\D/g, '').slice(0, 6);
+    setVerificationData(prev => ({ ...prev, code: numericValue }));
+
+    // Clear errors when user starts typing
+    if (errors.general) {
+      setErrors({});
+    }
+  };
+
   return (
     <>
       <Head>
@@ -675,9 +786,22 @@ export default function SignUp() {
                 {errors.general}
               </div>
             )}
+            {isLoading && (
+              <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500/50 rounded-lg text-blue-300">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 border-2 border-blue-300 border-t-transparent rounded-full animate-spin"></div>
+                  <div>
+                    <p className="font-medium">Creating your account...</p>
+                    <p className="text-sm text-blue-200">This may take a few seconds while we send your verification email.</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Conditional Form Rendering */}
+            {!showVerificationForm ? (
+              /* Registration Form */
+              <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
                   Full Name
@@ -935,24 +1059,106 @@ export default function SignUp() {
                     : 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-400 hover:to-cyan-400 hover:transform hover:scale-[1.02] active:scale-[0.98]'
                 } text-black focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-gray-900`}
               >
-                {isLoading 
-                  ? 'Creating Account...' 
-                  : isCheckingUsername 
-                  ? 'Checking Username...' 
+                {isLoading
+                  ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                      <span>Sending verification email...</span>
+                    </div>
+                  )
+                  : isCheckingUsername
+                  ? 'Checking Username...'
                   : 'Create Account'
                 }
               </button>
             </form>
+            ) : (
+              /* Email Verification Form */
+              <form onSubmit={handleVerificationSubmit} className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold mb-2">
+                    <span className="text-white">Verify Your</span>
+                    <span className="bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent"> Email</span>
+                  </h2>
+                  <p className="text-gray-400 text-sm">
+                    We've sent a 6-digit verification code to
+                  </p>
+                  <p className="text-green-400 font-medium">{verificationData.email}</p>
+                </div>
 
-            {/* Sign In Link */}
-            <div className="mt-8 text-center">
-              <p className="text-gray-400">
-                Already have an account?{' '}
-                <Link href="/signin" className="text-green-400 hover:text-green-300 font-medium transition-colors">
-                  Sign in here
-                </Link>
-              </p>
-            </div>
+                <div>
+                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-300 mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    id="verificationCode"
+                    name="verificationCode"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={verificationData.code}
+                    onChange={handleVerificationCodeChange}
+                    className={`w-full px-4 py-3 bg-gray-800/50 border ${
+                      errors.general ? 'border-red-500' : 'border-gray-600'
+                    } rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none transition-all duration-200 text-center text-2xl tracking-widest font-mono`}
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                  />
+                  <p className="mt-2 text-xs text-gray-400 text-center">
+                    Enter the 6-digit code sent to your email
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    type="submit"
+                    disabled={isVerifying || verificationData.code.length !== 6}
+                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
+                      isVerifying || verificationData.code.length !== 6
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-400 hover:to-cyan-400 hover:transform hover:scale-[1.02] active:scale-[0.98]'
+                    } text-black focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-gray-900`}
+                  >
+                    {isVerifying ? 'Verifying...' : 'Verify Email'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resendLoading}
+                    className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend verification code'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVerificationForm(false);
+                      setVerificationData({ email: '', code: '' });
+                      setErrors({});
+                      setSuccessMessage('');
+                    }}
+                    className="w-full py-2 px-4 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    ← Back to registration
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Sign In Link - Only show if not in verification mode */}
+            {!showVerificationForm && (
+              <div className="mt-8 text-center">
+                <p className="text-gray-400">
+                  Already have an account?{' '}
+                  <Link href="/signin" className="text-green-400 hover:text-green-300 font-medium transition-colors">
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
