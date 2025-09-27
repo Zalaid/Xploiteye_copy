@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from config.settings import settings
 from config.logging_config import setup_uvicorn_logging, log_meaningful_startup, log_meaningful_shutdown
 from app.database.mongodb import connect_to_mongo, close_mongo_connection
-from app.routes import auth, dashboard, mfa, scanning, cve, email_verification
+from app.routes import auth, dashboard, mfa, scanning, cve, email_verification, password_reset
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,6 +57,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(email_verification.router)  # Email verification routes
+app.include_router(password_reset.router)      # Password reset routes
 app.include_router(mfa.router)
 app.include_router(dashboard.router)
 app.include_router(scanning.router)

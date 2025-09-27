@@ -432,3 +432,26 @@ class UserService:
         except Exception as e:
             print(f"Error using recovery code: {str(e)}")
             return False
+
+    async def update_user_password(self, user_id: str, new_password: str) -> bool:
+        """Update user password (for password reset)"""
+        try:
+            # Hash new password
+            new_hashed_password = SecurityUtils.hash_password(new_password)
+
+            # Update password in database
+            result = await self.collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "hashed_password": new_hashed_password,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+
+            return result.modified_count > 0
+
+        except Exception as e:
+            print(f"Error updating user password: {str(e)}")
+            return False
