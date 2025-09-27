@@ -71,13 +71,9 @@ async def get_current_active_user(
     current_user: UserInDB = Depends(get_current_user)
 ) -> UserInDB:
     """
-    Dependency to get current active (verified) user
+    Dependency to get current active user
     """
-    if not current_user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not verified. Please check your email."
-        )
+    # Since is_verified field has been removed, all authenticated users are considered active
     return current_user
 
 async def get_user_service():
