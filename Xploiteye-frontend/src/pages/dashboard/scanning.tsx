@@ -352,6 +352,120 @@ export function ScanningModule() {
 
   // Simple scan state management - no complex versioning or user isolation
   const CURRENT_SCAN_KEY = 'xploiteye_current_scan'
+const GLOBAL_PROGRESS_KEY = 'xploiteye_global_progress'
+
+// Global Progress Manager - runs independent of page
+class GlobalProgressManager {
+  private static instance: GlobalProgressManager
+  private progressInterval: NodeJS.Timeout | null = null
+  private isRunning = false
+
+  static getInstance(): GlobalProgressManager {
+    if (!GlobalProgressManager.instance) {
+      GlobalProgressManager.instance = new GlobalProgressManager()
+    }
+    return GlobalProgressManager.instance
+  }
+
+  startGlobalProgress(scanId: string, scanType: string) {
+    if (this.isRunning) {
+      console.log('🌐 [GLOBAL] Progress already running')
+      return
+    }
+
+    console.log(`🌐 [GLOBAL] Starting global progress for scan ${scanId}`)
+    this.isRunning = true
+
+    // Get scan duration based on scan type
+    const getScanDuration = (type: string): number => {
+      switch (type) {
+        case 'light': return 45  // 45 seconds
+        case 'medium': return 180 // 3 minutes
+        case 'deep': return 600   // 10 minutes
+        default: return 45
+      }
+    }
+
+    const scanDuration = getScanDuration(scanType)
+    const startTime = Date.now()
+
+    // Save global progress data
+    const globalProgressData = {
+      scanId,
+      scanType,
+      startTime,
+      scanDuration,
+      isActive: true
+    }
+    localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalProgressData))
+
+    // Update progress every 500ms globally
+    this.progressInterval = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000
+      const progress = Math.min((elapsed / scanDuration) * 95, 95) // Cap at 95%
+
+      // Update global progress in localStorage
+      const currentData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+      if (currentData.scanId === scanId && currentData.isActive) {
+        currentData.currentProgress = progress
+        localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(currentData))
+
+        // Also update the main scan state
+        const scanState = localStorage.getItem(CURRENT_SCAN_KEY)
+        if (scanState) {
+          const state = JSON.parse(scanState)
+          if (state.currentScanId === scanId && state.isScanning) {
+            state.scanProgress = progress
+            localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+          }
+        }
+
+        console.log(`🌐 [GLOBAL] Progress updated: ${Math.round(progress)}%`)
+      } else {
+        // Scan completed or changed, stop global progress
+        this.stopGlobalProgress()
+      }
+    }, 500)
+  }
+
+  stopGlobalProgress() {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval)
+      this.progressInterval = null
+    }
+    this.isRunning = false
+
+    // Mark global progress as inactive
+    const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+    globalData.isActive = false
+    localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalData))
+
+    console.log('🌐 [GLOBAL] Global progress stopped')
+  }
+
+  getCurrentProgress(scanId: string): number {
+    const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+    console.log(`🌐 [GLOBAL] getCurrentProgress called for ${scanId}:`, globalData)
+
+    if (globalData.scanId === scanId && globalData.isActive) {
+      console.log(`🌐 [GLOBAL] Returning progress: ${globalData.currentProgress}`)
+      return globalData.currentProgress || 0
+    }
+
+    // Fallback: try to get progress from main scan state if global progress isn't active
+    const scanState = JSON.parse(localStorage.getItem(CURRENT_SCAN_KEY) || '{}')
+    if (scanState.currentScanId === scanId && scanState.isScanning) {
+      console.log(`🌐 [GLOBAL] Fallback to scan state progress: ${scanState.scanProgress}`)
+      return scanState.scanProgress || 0
+    }
+
+    console.log(`🌐 [GLOBAL] No progress found for ${scanId}`)
+    return 0
+  }
+}
+
+// Global instance
+const globalProgressManager = GlobalProgressManager.getInstance()
 
   // Simple state management functions
   const saveScanStateToStorage = () => {
@@ -401,7 +515,6 @@ export function ScanningModule() {
       setCurrentScanId(state.currentScanId)
       setIsScanning(state.isScanning)
       setTargetInput(state.targetInput)
-      setScanProgress(state.scanProgress)
       setScanStatus(state.scanStatus)
       setScanMessage(state.scanMessage)
       setCurrentScanType(state.currentScanType)
@@ -412,11 +525,28 @@ export function ScanningModule() {
       setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
       setActualOpenPortsFound(state.actualOpenPortsFound || 0)
 
-      // Resume polling if scan was active
+      // Get current progress from global progress manager, not old saved state
+      if (state.isScanning && state.currentScanId) {
+        const currentGlobalProgress = globalProgressManager.getCurrentProgress(state.currentScanId)
+        console.log(`🌐 [STATE] Setting progress from global manager: ${Math.round(currentGlobalProgress)}%`)
+        setScanProgress(currentGlobalProgress > 0 ? currentGlobalProgress : state.scanProgress)
+      } else {
+        setScanProgress(state.scanProgress)
+      }
+
+      // Resume polling and global progress if scan was active
       if (state.isScanning && state.currentScanId) {
         console.log("🔄 [STATE] Resuming scan polling after navigation")
         setIsPolling(true)
         pollScanStatus(state.currentScanId)
+
+        // Check if global progress needs to be resumed
+        const globalProgress = globalProgressManager.getCurrentProgress(state.currentScanId)
+        if (globalProgress === 0) {
+          // Global progress stopped, restart it
+          console.log("🌐 [STATE] Resuming global progress after navigation")
+          globalProgressManager.startGlobalProgress(state.currentScanId, state.currentScanType)
+        }
       }
 
       console.log("✅ [STATE] Restored scan state after navigation")
@@ -781,7 +911,7 @@ export function ScanningModule() {
     }
   }
 
-  // Simulate incremental progress in proper increments until scan completion
+  // DEPRECATED: Progress simulation now handled by GlobalProgressManager
   const simulateIncrementalProgress = (scanType: string, scanId: string) => {
     const duration = getScanDuration(scanType)
     const progressSteps = [10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98]
@@ -869,7 +999,8 @@ export function ScanningModule() {
       }
     }, stepInterval)
 
-    return progressTimer
+    // Return null since we're using GlobalProgressManager now
+    return null
   }
 
   // Network Discovery handler
@@ -1155,8 +1286,8 @@ export function ScanningModule() {
         }
         // State will be saved by saveScanState call below
 
-        // Start incremental progress simulation
-        const progressTimer = simulateIncrementalProgress(scanType, scanData.scan_id)
+        // Start global progress animation that runs across all pages
+        globalProgressManager.startGlobalProgress(scanData.scan_id, scanType)
 
         // Save scan state to localStorage immediately with correct scan ID
         const state = {
@@ -1180,7 +1311,7 @@ export function ScanningModule() {
 
         // Start polling for scan status
         console.log(`🚀 [SCAN START] About to start polling for scan ${scanData.scan_id}`)
-        pollScanStatus(scanData.scan_id, progressTimer)
+        pollScanStatus(scanData.scan_id)
       } else {
         const error = await response.json()
         addTerminalLine('error', `❌ Failed to start scan: ${error.detail}`)
@@ -1197,7 +1328,7 @@ export function ScanningModule() {
     }
   }
 
-  const pollScanStatus = async (scanId: string, progressTimer?: any) => {
+  const pollScanStatus = async (scanId: string) => {
     console.log(`🚀 [POLLING] Starting pollScanStatus for scan ${scanId}`)
 
     // Enhanced conflict prevention
@@ -1231,10 +1362,8 @@ export function ScanningModule() {
       setIsPolling(false)
       console.log(`🛑 [POLLING] Stopped for scan ${scanId}: ${reason}`)
 
-      // Clear progress timer if provided
-      if (progressTimer) {
-        clearInterval(progressTimer)
-      }
+      // Stop global progress when polling stops
+      globalProgressManager.stopGlobalProgress()
     }
 
     const poll = async () => {
@@ -1400,10 +1529,7 @@ export function ScanningModule() {
                 // FORCE IMMEDIATE COMPLETION - Stop any progress animation
                 stopProgressAnimation()
 
-                // Clear progress timer
-                if (progressTimer) {
-                  clearInterval(progressTimer)
-                }
+                // Global progress will be stopped by stopPolling() function
 
                 // IMMEDIATE jump to 100% regardless of current progress
                 setScanProgress(100)
@@ -1685,15 +1811,51 @@ export function ScanningModule() {
       console.log("✅ CVE API initialized with AuthContext")
     }
 
-    // Clean up all scan data on page refresh (keep auth tokens)
+    // Clean up only old/stale scan data, preserve active scans
+    const currentScanState = localStorage.getItem(CURRENT_SCAN_KEY)
+    let activeScanId = null
+
+    if (currentScanState) {
+      try {
+        const state = JSON.parse(currentScanState)
+        // Only preserve if scan is actually active (scanning status)
+        if (state.isScanning && state.scanStatus === 'scanning') {
+          activeScanId = state.currentScanId
+          console.log(`🔄 [NAVIGATION] Preserving active scan: ${activeScanId}`)
+        }
+      } catch (e) {
+        console.log('Failed to parse scan state')
+      }
+    }
+
+    // Clean up scan data, but preserve active scan
     Object.keys(localStorage).forEach(key => {
       if (!key.includes('token') && !key.includes('user_id') && !key.includes('auth') &&
           (key.includes('scan_') || key.includes('xploiteye') || key.includes('progress_'))) {
+
+        // Don't remove the current active scan data
+        if (key === CURRENT_SCAN_KEY && activeScanId) {
+          console.log(`🔄 [NAVIGATION] Preserving current scan state for ${activeScanId}`)
+          return
+        }
+
+        // Don't remove active scan timing data
+        if (activeScanId && key.includes(activeScanId)) {
+          console.log(`🔄 [NAVIGATION] Preserving active scan data: ${key}`)
+          return
+        }
+
+        // Don't remove global progress data - it needs to persist for background progress
+        if (key === GLOBAL_PROGRESS_KEY) {
+          console.log(`🔄 [NAVIGATION] Preserving global progress data`)
+          return
+        }
+
         localStorage.removeItem(key)
-        console.log(`🧹 [PAGE REFRESH] Removed scan data: ${key}`)
+        console.log(`🧹 [CLEANUP] Removed old scan data: ${key}`)
       }
     })
-    console.log(`🧹 [PAGE REFRESH] Scan data cleanup completed`)
+    console.log(`🧹 [CLEANUP] Selective cleanup completed`)
 
     // Check for completed scans and clear them
     const stored = localStorage.getItem(CURRENT_SCAN_KEY)
@@ -1726,6 +1888,20 @@ export function ScanningModule() {
       console.log("🔄 [INIT] No active scan found to restore")
     }
   }, [apiCall])
+
+  // Global progress listener - updates UI from global progress
+  useEffect(() => {
+    if (!currentScanId || !isScanning) return
+
+    const progressListener = setInterval(() => {
+      const globalProgress = globalProgressManager.getCurrentProgress(currentScanId)
+      if (globalProgress > 0) {
+        setScanProgress(globalProgress)
+      }
+    }, 500) // Check every 500ms
+
+    return () => clearInterval(progressListener)
+  }, [currentScanId, isScanning])
 
   // Cleanup progress animation on component unmount
   useEffect(() => {
