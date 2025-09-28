@@ -6,6 +6,7 @@ import os
 from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from pathlib import Path
 
 class Settings(BaseSettings):
     # Application Configuration
@@ -13,6 +14,8 @@ class Settings(BaseSettings):
     app_version: str = Field(default="1.0.0")
     debug: bool = Field(default=True)
     
+
+    nuclei_path: Path = Field(default=Path("/home/kali/go/bin/nuclei"))
     # MongoDB Configuration
     mongodb_url: str = Field(default="mongodb://localhost:27017")
     mongodb_database: str = Field(default="xploiteye")
