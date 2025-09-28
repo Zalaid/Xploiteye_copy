@@ -213,7 +213,7 @@ export function ScanningModule() {
   const [scanMessage, setScanMessage] = useState("")
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [terminalLines, setTerminalLines] = useState<any[]>([])
-  const [currentScanType, setCurrentScanType] = useState<string>('')
+  const [currentScanType, setCurrentScanType] = useState<string | null>('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [showPdfNotification, setShowPdfNotification] = useState(false)
   const [actualPortsScanned, setActualPortsScanned] = useState(0)
