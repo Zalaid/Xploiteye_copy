@@ -435,12 +435,9 @@ class GlobalProgressManager {
     }
     this.isRunning = false
 
-    // Mark global progress as inactive
-    const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
-    globalData.isActive = false
-    localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalData))
-
-    console.log('🌐 [GLOBAL] Global progress stopped')
+    // Remove global progress data completely when stopping
+    localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+    console.log('🌐 [GLOBAL] Global progress stopped and removed from localStorage')
   }
 
   getCurrentProgress(scanId: string): number {
@@ -511,26 +508,55 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         return false
       }
 
-      // Restore all state
-      setCurrentScanId(state.currentScanId)
-      setIsScanning(state.isScanning)
-      setTargetInput(state.targetInput)
-      setScanStatus(state.scanStatus)
-      setScanMessage(state.scanMessage)
-      setCurrentScanType(state.currentScanType)
-      setHasActiveScan(state.hasActiveScan)
-      setActiveScan(state.activeScan || null)  // Restore scan results
-      setActualPortsScanned(state.actualPortsScanned || 0)
-      setActualServicesFound(state.actualServicesFound || 0)
-      setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
-      setActualOpenPortsFound(state.actualOpenPortsFound || 0)
+      // Check if this is a completed scan before restoring
+      const isCompletedScan = state.scanStatus === 'completed' || state.scanProgress >= 100
 
-      // Get current progress from global progress manager, not old saved state
-      if (state.isScanning && state.currentScanId) {
+      if (isCompletedScan) {
+        // Don't restore completed scan state - clear everything and clean localStorage
+        console.log(`🧹 [STATE] Detected completed scan, clearing instead of restoring`)
+        localStorage.removeItem(CURRENT_SCAN_KEY) // Remove the completed state from storage
+        globalProgressManager.stopGlobalProgress() // Stop global progress
+        setCurrentScanId(null)
+        setIsScanning(false)
+        setTargetInput(state.targetInput) // Keep target input but clear scan state
+        setScanStatus('idle')
+        setScanMessage('')
+        setCurrentScanType(null)
+        setHasActiveScan(false)
+        setActiveScan(null)
+        setActualPortsScanned(0)
+        setActualServicesFound(0)
+        setActualVulnerabilitiesFound(0)
+        setActualOpenPortsFound(0)
+        // Progress will be set to 0 below
+      } else {
+        // Restore active scan state
+        setCurrentScanId(state.currentScanId)
+        setIsScanning(state.isScanning)
+        setTargetInput(state.targetInput)
+        setScanStatus(state.scanStatus)
+        setScanMessage(state.scanMessage)
+        setCurrentScanType(state.currentScanType)
+        setHasActiveScan(state.hasActiveScan)
+        setActiveScan(state.activeScan || null)  // Restore scan results
+        setActualPortsScanned(state.actualPortsScanned || 0)
+        setActualServicesFound(state.actualServicesFound || 0)
+        setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
+        setActualOpenPortsFound(state.actualOpenPortsFound || 0)
+      }
+
+      // Set progress based on scan state
+      if (isCompletedScan) {
+        // Always set progress to 0 for completed scans
+        setScanProgress(0)
+        console.log(`🧹 [STATE] Set progress to 0 for completed scan`)
+      } else if (state.isScanning && state.currentScanId) {
+        // For active scans, use global progress manager
         const currentGlobalProgress = globalProgressManager.getCurrentProgress(state.currentScanId)
         console.log(`🌐 [STATE] Setting progress from global manager: ${Math.round(currentGlobalProgress)}%`)
         setScanProgress(currentGlobalProgress > 0 ? currentGlobalProgress : state.scanProgress)
       } else {
+        // For idle scans, restore saved progress
         setScanProgress(state.scanProgress)
       }
 
@@ -1150,6 +1176,17 @@ const globalProgressManager = GlobalProgressManager.getInstance()
           setScanErrorMessage("An active scan is already running. Please wait for it to complete.")
           setTimeout(() => setScanErrorMessage(""), 5000)
           return
+        } else if (state.scanStatus === 'completed' || state.scanProgress >= 100) {
+          // Clear completed scan data before starting new scan
+          console.log(`🧹 [SCAN LAUNCH] Clearing completed scan data before starting new scan`)
+          clearAllScanData()
+          // Reset component state to ensure clean start
+          setScanProgress(0)
+          setScanStatus('idle')
+          setIsScanning(false)
+          setCurrentScanId(null)
+          setActiveScan(null)
+          setHasActiveScan(false)
         }
       } catch (error) {
         // Clear corrupted state
@@ -1476,11 +1513,69 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               currentScanId: currentScanId
             })
 
+            // JUMP PROGRESS TO 100% IMMEDIATELY when scan results are available
+            console.log(`🚀 [PROGRESS] Scan results available - jumping progress to 100%`)
+            stopProgressAnimation()
+            setScanProgress(100)
+
+            // Update localStorage with 100% progress
+            const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+            if (stored) {
+              try {
+                const state = JSON.parse(stored)
+                state.scanProgress = 100
+                localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+                console.log(`💾 [STORAGE] Updated localStorage progress to 100%`)
+              } catch (error) {
+                console.error('Error updating localStorage progress:', error)
+              }
+            }
+
+            // Update global progress storage
+            const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+            if (globalData.scanId === scanId) {
+              globalData.currentProgress = 100
+              localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalData))
+              console.log(`🌐 [GLOBAL] Updated global progress to 100%`)
+            }
+
             // Update statistics immediately from JSON data - no complex conditions
             setActualPortsScanned(calculatedPortsScanned)
             setActualServicesFound(calculatedServicesFound)
             setActualVulnerabilitiesFound(calculatedVulnerabilitiesFound)
             setActualOpenPortsFound(calculatedOpenPorts)
+
+            // DISPLAY CVE DATA IMMEDIATELY when scan results are available
+            if (scanData.results && scanData.results.vulnerabilities && scanData.results.vulnerabilities.length > 0) {
+              addTerminalLine('info', `🔍 Processing ${scanData.results.vulnerabilities.length} vulnerabilities...`)
+              console.log('Vulnerabilities to display immediately:', scanData.results.vulnerabilities)
+
+              // Convert scan results to CVE format and display immediately
+              const cveData = scanData.results.vulnerabilities.map((vuln: any, index: number) => ({
+                id: vuln.cve_id || `VULN-${index + 1}`,
+                cve_id: vuln.cve_id || `VULN-${index + 1}`,
+                title: vuln.title || vuln.name || 'Vulnerability',
+                description: vuln.description || 'No description available',
+                severity: vuln.severity || 'unknown',
+                cvss_score: vuln.cvss_score || 0,
+                references: vuln.references || [],
+                affected_service: vuln.service || vuln.port || 'Unknown',
+                remediation: vuln.remediation || 'No remediation available'
+              }))
+
+              // Display CVEs immediately at the same time as progress reaches 100%
+              setFoundCVEs(cveData)
+              setHasActiveScan(false) // Clear active scan flag
+              addTerminalLine('success', `✅ Displayed ${cveData.length} vulnerabilities immediately`)
+
+              // Store CVEs to database in background (non-blocking) - no delay needed
+              storeCVEsFromScan(scanId, scanData.results.vulnerabilities)
+            } else if (scanData.results) {
+              // Clear hasActiveScan flag and show empty state when results are available but no vulnerabilities
+              setHasActiveScan(false)
+              setFoundCVEs([])
+              addTerminalLine('info', '📊 No vulnerabilities found in scan')
+            }
 
             console.log(`✅ SIMPLE UPDATE COMPLETE: ${calculatedPortsScanned} ports, ${calculatedServicesFound} services, ${calculatedVulnerabilitiesFound} vulnerabilities`)
           } else {
@@ -1542,6 +1637,27 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
                 console.log(`🎯 [BACKEND] Progress forced to 100% due to backend completion status and synced to all tabs`)
 
+                // Auto-reset to idle state after 3 seconds to allow new scans
+                setTimeout(() => {
+                  console.log("🧹 [AUTO-RESET] Automatically resetting completed scan to idle state")
+
+                  // Clear localStorage
+                  localStorage.removeItem(CURRENT_SCAN_KEY)
+                  localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+
+                  // Reset component state
+                  setScanProgress(0)
+                  setScanStatus('idle')
+                  setIsScanning(false)
+                  setCurrentScanId(null)
+                  setActiveScan(null)
+                  setHasActiveScan(false)
+                  setScanMessage('')
+                  setCurrentScanType(null)
+
+                  console.log("✅ [AUTO-RESET] Scan state reset to idle - ready for new scans")
+                }, 3000)
+
                 // Play completion sound notification
                 try {
                   const audio = new Audio('/scan-complete.wav'); 
@@ -1580,41 +1696,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                   addTerminalLine('success', '✅ No critical vulnerabilities detected')
                 }
 
-                // IMMEDIATELY display CVEs from JSON data
-                if (scanData.results.vulnerabilities && scanData.results.vulnerabilities.length > 0) {
-                  addTerminalLine('info', `🔍 Processing ${scanData.results.vulnerabilities.length} vulnerabilities...`)
-                  console.log('Vulnerabilities to display:', scanData.results.vulnerabilities)
-
-                  // Convert scan results to CVE format and display immediately
-                  const cveData = scanData.results.vulnerabilities.map((vuln: any, index: number) => ({
-                    id: vuln.cve_id || `VULN-${index + 1}`,
-                    cve_id: vuln.cve_id || `VULN-${index + 1}`,
-                    severity: vuln.severity || 'medium',
-                    cvss_score: vuln.cvss_score,
-                    description: vuln.description || 'Vulnerability found during scan',
-                    exploitable: vuln.exploitable || false,
-                    privilege_escalation: vuln.privilege_escalation || false,
-                    port: vuln.port,
-                    service: vuln.service,
-                    target: targetInput,
-                    remediated: false
-                  }))
-
-                  // Display CVEs immediately from JSON data
-                  setFoundCVEs(cveData)
-                  setHasActiveScan(false) // Clear active scan flag
-                  addTerminalLine('success', `✅ Displayed ${cveData.length} vulnerabilities immediately`)
-
-                  // Store CVEs to database in background (non-blocking)
-                  setTimeout(() => {
-                    storeCVEsFromScan(scanId, scanData.results.vulnerabilities)
-                  }, 100)
-                } else {
-                  // Clear hasActiveScan flag and show empty state
-                  setHasActiveScan(false)
-                  setFoundCVEs([])
-                  addTerminalLine('info', '📊 No vulnerabilities found in scan')
-                }
+                // CVE display has already been handled earlier when results became available
+                // This ensures consistent timing between progress bar and data display
+                console.log('✅ CVE display already handled - maintaining consistency')
 
                 // PDF report will be generated automatically in background and emailed
                 addTerminalLine('info', '📄 PDF report will be generated automatically and emailed to you...')
@@ -1639,18 +1723,11 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             setTimeout(poll, 5000) // Poll every 5 seconds
           } else if (scanData.status === 'completed') {
             // Scan completed - STOP polling after processing final data
-            console.log(`✅ [BACKEND] Scan ${scanId} completion detected - forcing progress to 100%`)
+            console.log(`✅ [BACKEND] Scan ${scanId} completion detected - stopping polling`)
             stopPolling() // Stop any further polling
 
-            // FORCE IMMEDIATE COMPLETION - Stop progress animation and jump to 100%
-            stopProgressAnimation()
-            setScanProgress(100)
-
-            // Scan completed
-
-            // Progress completed
-
-            console.log(`🎯 [BACKEND] Progress forced to 100% due to backend completion status and synced to all tabs`)
+            // Progress and data display already handled when results became available
+            console.log(`🎯 [BACKEND] Progress and data display already handled consistently`)
 
             // Play completion sound notification
             try {
@@ -1686,6 +1763,27 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
             // Refresh scan history
             loadScanHistory()
+
+            // Auto-reset to idle state after 3 seconds to allow new scans
+            setTimeout(() => {
+              console.log("🧹 [AUTO-RESET] Automatically resetting completed scan to idle state")
+
+              // Clear localStorage
+              localStorage.removeItem(CURRENT_SCAN_KEY)
+              localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+
+              // Reset component state
+              setScanProgress(0)
+              setScanStatus('idle')
+              setIsScanning(false)
+              setCurrentScanId(null)
+              setActiveScan(null)
+              setHasActiveScan(false)
+              setScanMessage('')
+              setCurrentScanType(null)
+
+              console.log("✅ [AUTO-RESET] Scan state reset to idle - ready for new scans")
+            }, 3000)
           } else if (scanData.status === 'completed_file_missing') {
             // Scan completed but files are missing - stop polling
             console.log(`⚠️ Scan ${scanId} completed with missing files - stopping polling`)
@@ -1805,6 +1903,45 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
   // Initialize CVE API and component state
   useEffect(() => {
+    // IMMEDIATE CLEANUP: Check for completed scans and clear them first
+    const immediateCheck = localStorage.getItem(CURRENT_SCAN_KEY)
+    if (immediateCheck) {
+      try {
+        const state = JSON.parse(immediateCheck)
+        if (state.scanStatus === 'completed' || state.scanProgress >= 100) {
+          console.log("🚨 [IMMEDIATE CLEANUP] Found completed scan on mount - clearing immediately")
+
+          // Clear localStorage completely
+          localStorage.removeItem(CURRENT_SCAN_KEY)
+          localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+
+          // Reset ALL component state immediately
+          setScanProgress(0)
+          setScanStatus('idle')
+          setIsScanning(false)
+          setCurrentScanId(null)
+          setActiveScan(null)
+          setHasActiveScan(false)
+          setActualPortsScanned(0)
+          setActualServicesFound(0)
+          setActualVulnerabilitiesFound(0)
+          setActualOpenPortsFound(0)
+          setScanMessage('')
+          setCurrentScanType(null)
+
+          console.log("✅ [IMMEDIATE CLEANUP] Completed scan cleared - UI reset to idle state")
+
+          // Don't continue with other logic if we just cleared everything
+          return
+        }
+      } catch (error) {
+        console.log("🧹 [IMMEDIATE CLEANUP] Clearing corrupted scan data")
+        localStorage.removeItem(CURRENT_SCAN_KEY)
+        localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+        return
+      }
+    }
+
     // Initialize CVE API with AuthContext
     if (apiCall) {
       cveApi.setApiCall(apiCall)
@@ -1845,10 +1982,22 @@ const globalProgressManager = GlobalProgressManager.getInstance()
           return
         }
 
-        // Don't remove global progress data - it needs to persist for background progress
+        // Check global progress data - remove if completed or inactive
         if (key === GLOBAL_PROGRESS_KEY) {
-          console.log(`🔄 [NAVIGATION] Preserving global progress data`)
-          return
+          try {
+            const globalData = JSON.parse(localStorage.getItem(key) || '{}')
+            if (!globalData.isActive || globalData.currentProgress >= 100) {
+              console.log(`🧹 [CLEANUP] Removing completed/inactive global progress data`)
+              localStorage.removeItem(key)
+              return
+            }
+            console.log(`🔄 [NAVIGATION] Preserving active global progress data`)
+            return
+          } catch (error) {
+            console.log(`🧹 [CLEANUP] Removing corrupted global progress data`)
+            localStorage.removeItem(key)
+            return
+          }
         }
 
         localStorage.removeItem(key)
@@ -1876,6 +2025,21 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
         console.log("✅ [INIT] Cleared completed scan data, starting fresh")
         return // Don't restore anything
+      }
+    }
+
+    // Also check for stale global progress data independently
+    const globalData = localStorage.getItem(GLOBAL_PROGRESS_KEY)
+    if (globalData) {
+      try {
+        const parsedGlobalData = JSON.parse(globalData)
+        if (!parsedGlobalData.isActive || parsedGlobalData.currentProgress >= 100) {
+          console.log("🧹 [INIT] Found stale global progress data, removing")
+          localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+        }
+      } catch (error) {
+        console.log("🧹 [INIT] Found corrupted global progress data, removing")
+        localStorage.removeItem(GLOBAL_PROGRESS_KEY)
       }
     }
 
