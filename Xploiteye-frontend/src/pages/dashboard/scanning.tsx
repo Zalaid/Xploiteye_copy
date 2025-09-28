@@ -574,6 +574,19 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         setActualOpenPortsFound(state.actualOpenPortsFound || 0)
         setFoundCVEs(state.foundCVEs || []) // Restore CVE data
         setScanSummary(state.scanSummary || null) // Restore scan summary
+
+        // Also restore IP validation state to enable scan buttons
+        if (state.targetInput) {
+          const validation = validateIPInput(state.targetInput)
+          setIsValidIP(validation.isValid)
+          if (!validation.isValid) {
+            setIpValidationError(validation.message)
+          } else {
+            setIpValidationError("")
+          }
+          console.log(`🔧 [STATE] Restored IP validation: ${validation.isValid} for ${state.targetInput}`)
+        }
+
         console.log(`✅ [STATE] Restored completed scan results: ${state.actualVulnerabilitiesFound || 0} vulnerabilities, ${(state.foundCVEs || []).length} CVEs`)
       } else {
         // Restore active scan state and results
@@ -591,6 +604,19 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         setActualOpenPortsFound(state.actualOpenPortsFound || 0)
         setFoundCVEs(state.foundCVEs || [])  // Restore CVE data
         setScanSummary(state.scanSummary || null)  // Restore scan summary
+
+        // Also restore IP validation state to enable scan buttons
+        if (state.targetInput) {
+          const validation = validateIPInput(state.targetInput)
+          setIsValidIP(validation.isValid)
+          if (!validation.isValid) {
+            setIpValidationError(validation.message)
+          } else {
+            setIpValidationError("")
+          }
+          console.log(`🔧 [STATE] Restored IP validation: ${validation.isValid} for ${state.targetInput}`)
+        }
+
         console.log(`🔄 [RESTORE] Restored scan results: ${state.actualVulnerabilitiesFound || 0} vulnerabilities, ${(state.foundCVEs || []).length} CVEs`)
       }
 
