@@ -1812,12 +1812,8 @@ export function ScanningModule() {
                   addTerminalLine('info', '📊 No vulnerabilities found in scan')
                 }
 
-                // Generate PDF report in background (non-blocking)
-                setIsGeneratingReport(true)
-                addTerminalLine('info', '📄 Generating PDF report in background...')
-                setTimeout(() => {
-                  generateReport(scanId)
-                }, 100) // Very small delay to ensure CVEs are processed first
+                // PDF report will be generated automatically in background and emailed
+                addTerminalLine('info', '📄 PDF report will be generated automatically and emailed to you...')
               }
 
               return {

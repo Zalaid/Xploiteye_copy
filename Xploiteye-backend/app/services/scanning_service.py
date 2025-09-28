@@ -17,6 +17,7 @@ from app.scanning.scanner_engine import execute_scan_with_controller
 from app.scanning.report_generator.gpt_prompts import generate_full_report
 from app.scanning.report_generator.pdf_generator import generate_pdf_report
 from app.services.cve_service import CVEService
+from app.services.email_service import EmailService
 from app.database.mongodb import get_database
 from config.settings import settings
 from config.logging_config import scanning_logger
@@ -27,6 +28,8 @@ class ScanningService:
     def __init__(self):
         self.active_scans: Dict[str, Dict] = {}
         self.db = None
+        self.pdf_generation_queue: List[Dict] = []
+        self.pdf_worker_running = False
 
     async def get_database(self):
         """Get database connection"""
@@ -166,8 +169,9 @@ class ScanningService:
                 # Store CVEs in database
                 await self._store_scan_cves(scan_id, scan_results)
 
-                # Note: PDF generation is now handled manually via API endpoint to avoid duplicates
-                logging.info(f"Scan {scan_id} completed. PDF can be generated via /scanning/generate-report endpoint")
+                # Mark that PDF generation is needed for this scan
+                await self._mark_scan_for_pdf_generation(scan_id, user.dict())
+                logging.info(f"Scan {scan_id} completed. Marked for background PDF generation.")
 
         except Exception as e:
             logging.error(f"Scan {scan_id} failed with exception: {e}")
@@ -507,7 +511,7 @@ class ScanningService:
             logging.error(f"Error storing CVEs for scan {scan_id}: {e}")
 
     async def _generate_auto_pdf_report(self, scan_id: str, user_data: Dict):
-        """Automatically generate PDF report after scan completion"""
+        """Automatically generate PDF report after scan completion and send via email"""
         try:
             # Recreate UserInDB object from stored data
             from app.models.user import UserInDB
@@ -518,11 +522,93 @@ class ScanningService:
 
             if result.status == "success":
                 logging.info(f"Automatic PDF report generated successfully for scan {scan_id}: {result.pdf_file}")
+
+                # Send email with PDF attachment
+                try:
+                    # Get scan data to extract target and scan type
+                    scan_data = await self.get_scan_status(scan_id, user)
+                    if scan_data and user.email:
+                        db = await self.get_database()
+                        email_service = EmailService(db)
+
+                        email_sent = await email_service.send_scan_report_email(
+                            to_email=user.email,
+                            scan_target=scan_data.target,
+                            scan_type=scan_data.scan_type.value,
+                            pdf_path=result.pdf_path
+                        )
+
+                        if email_sent:
+                            logging.info(f"PDF report emailed successfully to {user.email} for scan {scan_id}")
+                        else:
+                            logging.error(f"Failed to email PDF report to {user.email} for scan {scan_id}")
+                    else:
+                        logging.warning(f"Cannot send email for scan {scan_id}: missing scan data or user email")
+
+                except Exception as email_error:
+                    logging.error(f"Error sending email for scan {scan_id}: {email_error}")
+                    # Don't fail the entire process if email fails
+
             else:
                 logging.error(f"Automatic PDF report generation failed for scan {scan_id}: {result.message}")
 
         except Exception as e:
             logging.error(f"Error in automatic PDF report generation for scan {scan_id}: {e}")
+
+
+    async def _mark_scan_for_pdf_generation(self, scan_id: str, user_data: Dict):
+        """Mark scan for background PDF generation"""
+        try:
+            # Add to PDF generation queue
+            pdf_task = {
+                "scan_id": scan_id,
+                "user_data": user_data,
+                "timestamp": datetime.utcnow()
+            }
+            self.pdf_generation_queue.append(pdf_task)
+            logging.info(f"Added scan {scan_id} to PDF generation queue")
+
+            # Start the PDF worker if not already running
+            if not self.pdf_worker_running:
+                asyncio.create_task(self._pdf_generation_worker())
+
+        except Exception as e:
+            logging.error(f"Error marking scan for PDF generation: {e}")
+
+    async def _pdf_generation_worker(self):
+        """Background worker to process PDF generation queue"""
+        if self.pdf_worker_running:
+            return
+
+        self.pdf_worker_running = True
+        logging.info("PDF generation worker started")
+
+        try:
+            while self.pdf_generation_queue:
+                try:
+                    # Wait a bit to ensure scan completion is fully processed
+                    await asyncio.sleep(5)
+
+                    # Get the next task
+                    pdf_task = self.pdf_generation_queue.pop(0)
+                    scan_id = pdf_task["scan_id"]
+                    user_data = pdf_task["user_data"]
+
+                    logging.info(f"Processing PDF generation for scan {scan_id}")
+
+                    # Generate PDF and send email
+                    await self._generate_auto_pdf_report(scan_id, user_data)
+
+                    logging.info(f"Completed PDF generation for scan {scan_id}")
+
+                except Exception as e:
+                    logging.error(f"Error in PDF generation worker: {e}")
+
+        except Exception as e:
+            logging.error(f"PDF generation worker error: {e}")
+        finally:
+            self.pdf_worker_running = False
+            logging.info("PDF generation worker stopped")
 
     def _format_scan_results_to_text(self, scan_results: Dict) -> str:
         """Format scan results JSON to text for GPT processing"""
