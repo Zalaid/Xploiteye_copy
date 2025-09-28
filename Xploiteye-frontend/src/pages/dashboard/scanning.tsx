@@ -482,12 +482,29 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     if (!currentScanId) return false
 
     try {
+      // Check if we're trying to save idle status over completed status
+      const existingState = localStorage.getItem(CURRENT_SCAN_KEY)
+      let shouldPreserveCompletedStatus = false
+
+      if (existingState) {
+        try {
+          const existing = JSON.parse(existingState)
+          // If localStorage has completed status but current state is idle, preserve completed
+          if (existing.scanStatus === 'completed' && scanStatus === 'idle') {
+            shouldPreserveCompletedStatus = true
+            console.log("🔒 [STATE] Preserving completed status, not overwriting with idle")
+          }
+        } catch (e) {
+          // If parsing fails, continue with normal save
+        }
+      }
+
       const state = {
         currentScanId,
         isScanning,
         targetInput,
         scanProgress,
-        scanStatus,
+        scanStatus: shouldPreserveCompletedStatus ? 'completed' : scanStatus, // Preserve completed status
         scanMessage,
         currentScanType,
         hasActiveScan,
@@ -496,6 +513,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         actualServicesFound,
         actualVulnerabilitiesFound,
         actualOpenPortsFound,
+        foundCVEs,  // Include CVE data
+        scanSummary,  // Include scan summary
         timestamp: Date.now()
       }
 
@@ -511,9 +530,16 @@ const globalProgressManager = GlobalProgressManager.getInstance()
   const loadScanStateFromStorage = () => {
     try {
       const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+      console.log("🔍 [DEBUG] loadScanStateFromStorage - stored data:", stored)
       if (!stored) return false
 
       const state = JSON.parse(stored)
+      console.log("🔍 [DEBUG] loadScanStateFromStorage - parsed state:", {
+        scanStatus: state.scanStatus,
+        scanProgress: state.scanProgress,
+        currentScanId: state.currentScanId,
+        hasData: !!(state.foundCVEs || state.activeScan)
+      })
 
       // Check if state is too old (max 2 hours)
       if (Date.now() - state.timestamp > 2 * 60 * 60 * 1000) {
@@ -525,25 +551,32 @@ const globalProgressManager = GlobalProgressManager.getInstance()
       const isCompletedScan = state.scanStatus === 'completed' || state.scanProgress >= 100
 
       if (isCompletedScan) {
-        // Don't restore completed scan state - clear everything and clean localStorage
-        console.log(`🧹 [STATE] Detected completed scan, clearing instead of restoring`)
-        localStorage.removeItem(CURRENT_SCAN_KEY) // Remove the completed state from storage
+        // Restore completed scan results but set UI to idle state
+        console.log(`🔄 [STATE] Restoring completed scan results and setting UI to idle`)
+        console.log(`🔍 [DEBUG] Completed scan data to restore:`, {
+          currentScanId: state.currentScanId,
+          foundCVEs: state.foundCVEs?.length || 0,
+          activeScan: !!state.activeScan,
+          actualVulnerabilitiesFound: state.actualVulnerabilitiesFound
+        })
         globalProgressManager.stopGlobalProgress() // Stop global progress
-        setCurrentScanId(null)
-        setIsScanning(false)
-        setTargetInput(state.targetInput) // Keep target input but clear scan state
-        setScanStatus('idle')
+        setCurrentScanId(state.currentScanId) // Keep scan ID for results
+        setIsScanning(false) // Set scanning to false
+        setTargetInput(state.targetInput)
+        setScanStatus('idle') // Set to idle to allow new scans
         setScanMessage('')
-        setCurrentScanType(null)
-        setHasActiveScan(false)
-        setActiveScan(null)
-        setActualPortsScanned(0)
-        setActualServicesFound(0)
-        setActualVulnerabilitiesFound(0)
-        setActualOpenPortsFound(0)
-        // Progress will be set to 0 below
+        setCurrentScanType(state.currentScanType)
+        setHasActiveScan(false) // Set to false since scan is done
+        setActiveScan(state.activeScan || null) // Restore scan results
+        setActualPortsScanned(state.actualPortsScanned || 0)
+        setActualServicesFound(state.actualServicesFound || 0)
+        setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
+        setActualOpenPortsFound(state.actualOpenPortsFound || 0)
+        setFoundCVEs(state.foundCVEs || []) // Restore CVE data
+        setScanSummary(state.scanSummary || null) // Restore scan summary
+        console.log(`✅ [STATE] Restored completed scan results: ${state.actualVulnerabilitiesFound || 0} vulnerabilities, ${(state.foundCVEs || []).length} CVEs`)
       } else {
-        // Restore active scan state
+        // Restore active scan state and results
         setCurrentScanId(state.currentScanId)
         setIsScanning(state.isScanning)
         setTargetInput(state.targetInput)
@@ -556,6 +589,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         setActualServicesFound(state.actualServicesFound || 0)
         setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
         setActualOpenPortsFound(state.actualOpenPortsFound || 0)
+        setFoundCVEs(state.foundCVEs || [])  // Restore CVE data
+        setScanSummary(state.scanSummary || null)  // Restore scan summary
+        console.log(`🔄 [RESTORE] Restored scan results: ${state.actualVulnerabilitiesFound || 0} vulnerabilities, ${(state.foundCVEs || []).length} CVEs`)
       }
 
       // Set progress based on scan state
@@ -588,11 +624,13 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         }
       }
 
+      console.log("✅ [DEBUG] loadScanStateFromStorage returning true")
       console.log("✅ [STATE] Restored scan state after navigation")
       return true
     } catch (error) {
       console.error("❌ [STATE] Failed to restore scan state:", error)
       localStorage.removeItem(CURRENT_SCAN_KEY)
+      console.log("❌ [DEBUG] loadScanStateFromStorage returning false due to error")
       return false
     }
   }
@@ -1216,6 +1254,21 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     // Stop progress animation if running
     stopProgressAnimation()
 
+    // Clear ALL previous scan data when starting new scan
+    console.log(`🧹 [NEW SCAN] Clearing all previous scan data before starting new scan`)
+    localStorage.removeItem(CURRENT_SCAN_KEY)
+    localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+
+    // Reset all scan results and CVE data
+    setFoundCVEs([])
+    setActiveScan(null)
+    setHasActiveScan(false)
+    setActualPortsScanned(0)
+    setActualServicesFound(0)
+    setActualVulnerabilitiesFound(0)
+    setActualOpenPortsFound(0)
+    setScanSummary(null)
+
     console.log(`🔵 [SCAN LAUNCH] Starting ${scanType.toUpperCase()} scan - Complete state reset`)
     console.log(`🔵 [SCAN LAUNCH] PRE-RESET STATE:`, {
       currentScanType,
@@ -1581,6 +1634,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               setHasActiveScan(false) // Clear active scan flag
               addTerminalLine('success', `✅ Displayed ${cveData.length} vulnerabilities immediately`)
 
+              // Save state with CVE data for navigation persistence
+              setTimeout(() => saveScanState(), 100)
+
               // Store CVEs to database in background (non-blocking) - no delay needed
               storeCVEsFromScan(scanId, scanData.results.vulnerabilities)
             } else if (scanData.results) {
@@ -1653,25 +1709,36 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 // Show PDF generation notification immediately
                 showPdfGenerationNotification()
 
-                // Auto-reset to idle state after 3 seconds to allow new scans
+                // Auto-reset to idle state after 3 seconds to allow new scans (keep results)
                 setTimeout(() => {
-                  console.log("🧹 [AUTO-RESET] Automatically resetting completed scan to idle state")
+                  console.log("🔄 [AUTO-RESET] Resetting UI to idle state (keeping scan results)")
 
-                  // Clear localStorage
-                  localStorage.removeItem(CURRENT_SCAN_KEY)
+                  // Only clear global progress (temporary progress tracking)
                   localStorage.removeItem(GLOBAL_PROGRESS_KEY)
 
-                  // Reset component state
-                  setScanProgress(0)
-                  setScanStatus('idle')
-                  setIsScanning(false)
-                  setCurrentScanId(null)
-                  setActiveScan(null)
-                  setHasActiveScan(false)
-                  setScanMessage('')
-                  setCurrentScanType(null)
+                  // Update localStorage to keep completed status for navigation persistence
+                  const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+                  if (stored) {
+                    try {
+                      const state = JSON.parse(stored)
+                      // Keep the completed status but reset UI state
+                      state.scanProgress = 0
+                      state.scanStatus = 'completed' // Keep as completed, not idle
+                      state.isScanning = false
+                      localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+                      console.log("💾 [AUTO-RESET] Updated localStorage to keep completed status")
+                    } catch (error) {
+                      console.error("Error updating localStorage during auto-reset:", error)
+                    }
+                  }
 
-                  console.log("✅ [AUTO-RESET] Scan state reset to idle - ready for new scans")
+                  // Reset only UI state (keep scan results and data)
+                  setScanProgress(0)
+                  setScanStatus('idle') // UI shows idle but localStorage keeps completed
+                  setIsScanning(false)
+                  // NOTE: Keep currentScanId, activeScan, scan results, CVE data for navigation persistence
+
+                  console.log("✅ [AUTO-RESET] UI reset to idle - scan results preserved for navigation")
                 }, 3000)
 
                 // Play completion sound notification
@@ -1773,35 +1840,48 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             setHasActiveScan(false)
             setIsPolling(false)
 
-            // Update state and save
+            // Update state and save with all scan results
             setScanStatus('completed')
-            saveScanState()
 
             // Refresh scan history
             loadScanHistory()
 
+            // Save final state with all results for navigation persistence
+            setTimeout(() => saveScanState(), 200)
+
             // Show PDF generation notification immediately
             showPdfGenerationNotification()
 
-            // Auto-reset to idle state after 3 seconds to allow new scans
+            // Auto-reset to idle state after 3 seconds to allow new scans (keep results)
             setTimeout(() => {
-              console.log("🧹 [AUTO-RESET] Automatically resetting completed scan to idle state")
+              console.log("🔄 [AUTO-RESET] Resetting UI to idle state (keeping scan results)")
 
-              // Clear localStorage
-              localStorage.removeItem(CURRENT_SCAN_KEY)
+              // Only clear global progress (temporary progress tracking)
               localStorage.removeItem(GLOBAL_PROGRESS_KEY)
 
-              // Reset component state
-              setScanProgress(0)
-              setScanStatus('idle')
-              setIsScanning(false)
-              setCurrentScanId(null)
-              setActiveScan(null)
-              setHasActiveScan(false)
-              setScanMessage('')
-              setCurrentScanType(null)
+              // Update localStorage to keep completed status for navigation persistence
+              const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+              if (stored) {
+                try {
+                  const state = JSON.parse(stored)
+                  // Keep the completed status but reset UI state
+                  state.scanProgress = 0
+                  state.scanStatus = 'completed' // Keep as completed, not idle
+                  state.isScanning = false
+                  localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+                  console.log("💾 [AUTO-RESET] Updated localStorage to keep completed status")
+                } catch (error) {
+                  console.error("Error updating localStorage during auto-reset:", error)
+                }
+              }
 
-              console.log("✅ [AUTO-RESET] Scan state reset to idle - ready for new scans")
+              // Reset only UI state (keep scan results and data)
+              setScanProgress(0)
+              setScanStatus('idle') // UI shows idle but localStorage keeps completed
+              setIsScanning(false)
+              // NOTE: Keep currentScanId, activeScan, scan results, CVE data for navigation persistence
+
+              console.log("✅ [AUTO-RESET] UI reset to idle - scan results preserved for navigation")
             }, 3000)
           } else if (scanData.status === 'completed_file_missing') {
             // Scan completed but files are missing - stop polling
@@ -1922,45 +2002,6 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
   // Initialize CVE API and component state
   useEffect(() => {
-    // IMMEDIATE CLEANUP: Check for completed scans and clear them first
-    const immediateCheck = localStorage.getItem(CURRENT_SCAN_KEY)
-    if (immediateCheck) {
-      try {
-        const state = JSON.parse(immediateCheck)
-        if (state.scanStatus === 'completed' || state.scanProgress >= 100) {
-          console.log("🚨 [IMMEDIATE CLEANUP] Found completed scan on mount - clearing immediately")
-
-          // Clear localStorage completely
-          localStorage.removeItem(CURRENT_SCAN_KEY)
-          localStorage.removeItem(GLOBAL_PROGRESS_KEY)
-
-          // Reset ALL component state immediately
-          setScanProgress(0)
-          setScanStatus('idle')
-          setIsScanning(false)
-          setCurrentScanId(null)
-          setActiveScan(null)
-          setHasActiveScan(false)
-          setActualPortsScanned(0)
-          setActualServicesFound(0)
-          setActualVulnerabilitiesFound(0)
-          setActualOpenPortsFound(0)
-          setScanMessage('')
-          setCurrentScanType(null)
-
-          console.log("✅ [IMMEDIATE CLEANUP] Completed scan cleared - UI reset to idle state")
-
-          // Don't continue with other logic if we just cleared everything
-          return
-        }
-      } catch (error) {
-        console.log("🧹 [IMMEDIATE CLEANUP] Clearing corrupted scan data")
-        localStorage.removeItem(CURRENT_SCAN_KEY)
-        localStorage.removeItem(GLOBAL_PROGRESS_KEY)
-        return
-      }
-    }
-
     // Initialize CVE API with AuthContext
     if (apiCall) {
       cveApi.setApiCall(apiCall)
@@ -1971,17 +2012,30 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     const currentScanState = localStorage.getItem(CURRENT_SCAN_KEY)
     let activeScanId = null
 
+    console.log(`🔍 [DEBUG] Cleanup - checking currentScanState:`, currentScanState)
+
     if (currentScanState) {
       try {
         const state = JSON.parse(currentScanState)
-        // Only preserve if scan is actually active (scanning status)
-        if (state.isScanning && state.scanStatus === 'scanning') {
+        console.log(`🔍 [DEBUG] Cleanup - parsed state:`, {
+          scanStatus: state.scanStatus,
+          isScanning: state.isScanning,
+          currentScanId: state.currentScanId,
+          hasResults: !!(state.foundCVEs || state.activeScan)
+        })
+
+        // Preserve if scan is active OR completed (we want to keep completed results)
+        if ((state.isScanning && state.scanStatus === 'scanning') || state.scanStatus === 'completed') {
           activeScanId = state.currentScanId
-          console.log(`🔄 [NAVIGATION] Preserving active scan: ${activeScanId}`)
+          console.log(`🔄 [NAVIGATION] Preserving ${state.scanStatus} scan: ${activeScanId}`)
+        } else {
+          console.log(`🔍 [DEBUG] Not preserving scan - status: ${state.scanStatus}, isScanning: ${state.isScanning}`)
         }
       } catch (e) {
-        console.log('Failed to parse scan state')
+        console.log('Failed to parse scan state:', e)
       }
+    } else {
+      console.log(`🔍 [DEBUG] No currentScanState found in localStorage`)
     }
 
     // Clean up scan data, but preserve active scan
@@ -2025,27 +2079,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     })
     console.log(`🧹 [CLEANUP] Selective cleanup completed`)
 
-    // Check for completed scans and clear them
-    const stored = localStorage.getItem(CURRENT_SCAN_KEY)
-    if (stored) {
-      const storedState = JSON.parse(stored)
-      if (storedState && (storedState.scanStatus === 'completed' || storedState.scanProgress >= 100)) {
-        console.log("🧹 [INIT] Found completed scan, clearing old data")
-        clearAllScanData()
-
-        // Set clean state
-        setTargetInput("")
-        setIsValidIP(false)
-        setIpValidationError("")
-        setScanProgress(0)
-        setScanStatus('idle')
-        setIsScanning(false)
-        setCurrentScanId(null)
-
-        console.log("✅ [INIT] Cleared completed scan data, starting fresh")
-        return // Don't restore anything
-      }
-    }
+    // Skip the old auto-cleanup of completed scans - we now preserve results for navigation
 
     // Also check for stale global progress data independently
     const globalData = localStorage.getItem(GLOBAL_PROGRESS_KEY)
@@ -2063,12 +2097,14 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     }
 
     // Try to restore scan state for navigation persistence
+    console.log("🔍 [DEBUG] Checking localStorage before restoration:", localStorage.getItem(CURRENT_SCAN_KEY))
     const restored = loadScanStateFromStorage()
 
     if (restored) {
       console.log("✅ [INIT] Active scan state restored after navigation")
     } else {
       console.log("🔄 [INIT] No active scan found to restore")
+      console.log("🔍 [DEBUG] localStorage after failed restore:", localStorage.getItem(CURRENT_SCAN_KEY))
     }
   }, [apiCall])
 
