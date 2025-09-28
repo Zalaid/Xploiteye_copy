@@ -213,7 +213,7 @@ export function ScanningModule() {
   const [scanMessage, setScanMessage] = useState("")
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [terminalLines, setTerminalLines] = useState<any[]>([])
-  const [currentScanType, setCurrentScanType] = useState<string>('')
+  const [currentScanType, setCurrentScanType] = useState<string | null>('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [showPdfNotification, setShowPdfNotification] = useState(false)
   const [actualPortsScanned, setActualPortsScanned] = useState(0)
@@ -2263,8 +2263,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             {(isScanning || isCheckingIP) && (
               <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[1px] rounded-xl z-10 pointer-events-auto cursor-not-allowed" />
             )}
-            {/* Target Input Section */}
-            <div className="mb-8 text-center">
+            {/* Target Input Section - Only show for vulnerability assessment */}
+            {selectedScanMode === 'vulnerability-scan' && (
+              <div className="mb-8 text-center">
               <h3 className="text-2xl font-semibold text-green-400 mb-6 flex items-center justify-center">
                 <Target className="w-6 h-6 mr-3" />
                 Enter Your Target
@@ -2345,78 +2346,6 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 </motion.div>
               )}
 
-              {/* Scan Configuration Options */}
-              <div className="mt-6 flex justify-center">
-                <div className="flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-800/30 border border-gray-700/50 rounded-xl backdrop-blur-sm">
-                  <label className="flex items-center space-x-3 group cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="radio"
-                        name="scanMode"
-                        value="network-discovery"
-                        className="sr-only peer"
-                        onChange={(e) => setSelectedScanMode(e.target.value)}
-                      />
-                      <div className="w-5 h-5 rounded-full border-2 border-green-500/50 group-hover:border-green-500/70 peer-checked:border-green-500 peer-checked:bg-green-500 transition-all duration-200 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
-                      </div>
-                    </div>
-                    <span className="text-green-400 font-medium group-hover:text-green-300 transition-colors duration-200">
-                      Network Discovery
-                    </span>
-                    <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
-                      Active IPs
-                    </div>
-                  </label>
-
-                  <div className="w-px h-8 bg-gray-600/50"></div>
-
-                  <label className="flex items-center space-x-3 group cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="radio"
-                        name="scanMode"
-                        value="specific-port"
-                        className="sr-only peer"
-                        onChange={(e) => setSelectedScanMode(e.target.value)}
-                      />
-                      <div className="w-5 h-5 rounded-full border-2 border-blue-500/50 group-hover:border-blue-500/70 peer-checked:border-blue-500 peer-checked:bg-blue-500 transition-all duration-200 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
-                      </div>
-                    </div>
-                    <span className="text-blue-400 font-medium group-hover:text-blue-300 transition-colors duration-200">
-                      Specific Port Range
-                    </span>
-                    <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
-                      Custom
-                    </div>
-                  </label>
-
-                  <div className="w-px h-8 bg-gray-600/50"></div>
-
-                  <label className="flex items-center space-x-3 group cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="radio"
-                        name="scanMode"
-                        value="vulnerability-scan"
-                        defaultChecked
-                        className="sr-only peer"
-                        onChange={(e) => setSelectedScanMode(e.target.value)}
-                      />
-                      <div className="w-5 h-5 rounded-full border-2 border-orange-500/50 group-hover:border-orange-500/70 peer-checked:border-orange-500 peer-checked:bg-orange-500 transition-all duration-200 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
-                      </div>
-                    </div>
-                    <span className="text-orange-400 font-medium group-hover:text-orange-300 transition-colors duration-200">
-                      Vulnerability Assessment
-                    </span>
-                    <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
-                      With Intensity
-                    </div>
-                  </label>
-                </div>
-              </div>
 
               {/* Error message for scan attempts during active scan */}
               {scanErrorMessage && (
@@ -2431,6 +2360,99 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 </motion.div>
               )}
             </div>
+            )}
+
+            {/* Scan Mode Selection - Always Visible */}
+            <div className="mb-8 flex justify-center">
+              <div className="flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-800/30 border border-gray-700/50 rounded-xl backdrop-blur-sm">
+                <label className="flex items-center space-x-3 group cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="radio"
+                      name="scanMode"
+                      value="network-discovery"
+                      className="sr-only peer"
+                      onChange={(e) => setSelectedScanMode(e.target.value)}
+                    />
+                    <div className="w-5 h-5 rounded-full border-2 border-green-500/50 group-hover:border-green-500/70 peer-checked:border-green-500 peer-checked:bg-green-500 transition-all duration-200 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
+                    </div>
+                  </div>
+                  <span className="text-green-400 font-medium group-hover:text-green-300 transition-colors duration-200">
+                    Network Discovery
+                  </span>
+                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
+                    Active IPs
+                  </div>
+                </label>
+
+                <div className="w-px h-8 bg-gray-600/50"></div>
+
+                <label className="flex items-center space-x-3 group cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="radio"
+                      name="scanMode"
+                      value="specific-port"
+                      className="sr-only peer"
+                      onChange={(e) => setSelectedScanMode(e.target.value)}
+                    />
+                    <div className="w-5 h-5 rounded-full border-2 border-blue-500/50 group-hover:border-blue-500/70 peer-checked:border-blue-500 peer-checked:bg-blue-500 transition-all duration-200 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
+                    </div>
+                  </div>
+                  <span className="text-blue-400 font-medium group-hover:text-blue-300 transition-colors duration-200">
+                    Specific Port Range
+                  </span>
+                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
+                    Custom
+                  </div>
+                </label>
+
+                <div className="w-px h-8 bg-gray-600/50"></div>
+
+                <label className="flex items-center space-x-3 group cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="radio"
+                      name="scanMode"
+                      value="vulnerability-scan"
+                      defaultChecked
+                      className="sr-only peer"
+                      onChange={(e) => setSelectedScanMode(e.target.value)}
+                    />
+                    <div className="w-5 h-5 rounded-full border-2 border-orange-500/50 group-hover:border-orange-500/70 peer-checked:border-orange-500 peer-checked:bg-orange-500 transition-all duration-200 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200"></div>
+                    </div>
+                  </div>
+                  <span className="text-orange-400 font-medium group-hover:text-orange-300 transition-colors duration-200">
+                    Vulnerability Assessment
+                  </span>
+                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded-md">
+                    With Intensity
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Network Discovery Section - No input required */}
+            {selectedScanMode === 'network-discovery' && (
+              <div className="mb-8 text-center">
+                <h3 className="text-2xl font-semibold text-green-400 mb-4 flex items-center justify-center">
+                  <Target className="w-6 h-6 mr-3" />
+                  Network Discovery
+                </h3>
+                <p className="text-gray-300 text-lg mb-6">
+                  Automatically scan your local network to discover active devices
+                </p>
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 max-w-2xl mx-auto">
+                  <div className="flex items-center justify-center space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                    <span className="text-green-400 font-medium">No IP address required - Auto-detection enabled</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Scan Intensity Section - Compact Professional Design */}
             {selectedScanMode === "vulnerability-scan" && (
@@ -3020,67 +3042,114 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                         key={cve.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="p-4 border border-gray-700 rounded-lg bg-gray-800/50"
+                        className="border border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <Badge className={getSeverityColor(cve.severity)}>{cve.cve_id}</Badge>
-                            <span className="font-medium text-white">{cve.description}</span>
-                            {cve.cvss_score && (
-                              <Badge variant="outline" className="text-xs">
-                                CVSS: {cve.cvss_score}
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-gray-700/50 to-gray-800/50 border-b border-gray-600/30 p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <Badge className={`${getSeverityColor(cve.severity)} text-lg px-4 py-2 font-bold`}>
+                                {cve.cve_id}
+                              </Badge>
+                              <Badge className={`${getSeverityColor(cve.severity)} text-sm px-3 py-1 font-semibold uppercase`}>
+                                {cve.severity || 'CRITICAL'}
+                              </Badge>
+                              {cve.cvss_score && (
+                                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-sm px-3 py-1 font-semibold">
+                                  CVSS {cve.cvss_score}
+                                </Badge>
+                              )}
+                            </div>
+                            {cve.privilege_escalation && (
+                              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-sm px-3 py-1 font-medium">
+                                🔐 Privilege Escalation
                               </Badge>
                             )}
                           </div>
-                          {cve.privilege_escalation && (
-                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
-                              Privilege Escalation
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {cve.exploitable && (
-                            <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Exploitable</Badge>
-                          )}
-                          {cve.remediated && (
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Remediated</Badge>
-                          )}
-                          {cve.port && (
-                            <Badge variant="outline" className="text-xs">
-                              Port: {cve.port}
-                            </Badge>
-                          )}
-                          {cve.service && (
-                            <Badge variant="outline" className="text-xs">
-                              Service: {cve.service}
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs">
-                            Target: {cve.target}
-                          </Badge>
                         </div>
 
-                        <div className="flex items-center space-x-2 mt-3">
-                          {cve.exploitable && (
-                            <Link href="/dashboard/red-agent">
-                              <Button
-                                size="sm"
-                                className="bg-red-600 text-white border border-red-600 hover:bg-red-700 transition-colors"
-                              >
-                                <Target className="w-4 h-4 mr-2" />
-                                Exploit with Red Agent
-                              </Button>
-                            </Link>
-                          )}
-                          <Link href="/dashboard/blue-agent">
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 transition-colors"
+                        {/* CVE Details Section - Compact */}
+                        <div className="p-4 space-y-4">
+                          {/* Port and Service Info Only - Beautiful Design */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {cve.port && (
+                              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/40 rounded-xl p-4 text-center shadow-lg backdrop-blur-sm hover:shadow-blue-500/20 transition-all duration-300">
+                                <div className="text-blue-300 font-bold text-sm uppercase tracking-wider mb-2 flex items-center justify-center">
+                                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
+                                  Port
+                                </div>
+                                <div className="text-white font-bold text-2xl drop-shadow-lg">{cve.port}</div>
+                              </div>
+                            )}
+                            {cve.service && (
+                              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-2 border-green-500/40 rounded-xl p-4 text-center shadow-lg backdrop-blur-sm hover:shadow-green-500/20 transition-all duration-300">
+                                <div className="text-green-300 font-bold text-sm uppercase tracking-wider mb-2 flex items-center justify-center">
+                                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                                  Service
+                                </div>
+                                <div className="text-white font-bold text-2xl drop-shadow-lg">{cve.service}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Status Information */}
+                          <div className="flex items-center justify-center space-x-3">
+                            {cve.exploitable && (
+                              <div className="flex items-center space-x-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1">
+                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                <span className="text-red-400 font-semibold text-sm">🎯 Exploitable</span>
+                              </div>
+                            )}
+                            {cve.remediated && (
+                              <div className="flex items-center space-x-2 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-green-400 font-semibold text-sm">✅ Remediated</span>
+                              </div>
+                            )}
+                            {!cve.remediated && (
+                              <div className="flex items-center space-x-2 bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 py-1">
+                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                                <span className="text-orange-400 font-semibold text-sm">⚠️ Active Threat</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Footer - 50/50 Action Buttons */}
+                        <div className="border-t border-gray-600/30 grid grid-cols-2">
+                          <Link href="/dashboard/blue-agent" className="block">
+                            <button
+                              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 border-r border-gray-600/30 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-blue-500/25 text-base font-semibold rounded-none rounded-bl-xl flex items-center justify-center"
                             >
                               <Shield className="w-4 h-4 mr-2" />
-                              Remediate with Blue Agent
-                            </Button>
+                              REMEDIATE
+                            </button>
                           </Link>
+                          {cve.exploitable ? (
+                            <Link href="/dashboard/red-agent" className="block">
+                              <button
+                                className="w-full h-12 text-white border-0 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-red-500/25 text-base font-semibold rounded-none rounded-br-xl flex items-center justify-center"
+                                style={{
+                                  background: 'linear-gradient(to right, #dc2626, #b91c1c)',
+                                  backgroundImage: 'linear-gradient(to right, #dc2626, #b91c1c)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = 'linear-gradient(to right, #b91c1c, #991b1b)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = 'linear-gradient(to right, #dc2626, #b91c1c)'
+                                }}
+                              >
+                                <Target className="w-4 h-4 mr-2" />
+                                EXPLOIT
+                              </button>
+                            </Link>
+                          ) : (
+                            <div className="bg-gray-700/50 flex items-center justify-center text-gray-400 text-base font-semibold rounded-br-xl h-12">
+                              <Shield className="w-4 h-4 mr-2" />
+                              Not Exploitable
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     ))}

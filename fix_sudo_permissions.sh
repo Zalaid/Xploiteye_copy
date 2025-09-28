@@ -87,11 +87,13 @@ else
 fi
 
 # Test ip
-if timeout 5 sudo -n ip --version >/dev/null 2>&1; then
+IP_PATH="$(command -v ip | grep -v alias | head -n1)"
+if timeout 5 sudo -n "$IP_PATH" link show >/dev/null 2>&1; then
     echo "✅ ip: passwordless sudo working"
 else
     echo "❌ ip: passwordless sudo NOT working"
 fi
+
 
 # Test arping
 if timeout 5 sudo -n arping -h >/dev/null 2>&1; then
