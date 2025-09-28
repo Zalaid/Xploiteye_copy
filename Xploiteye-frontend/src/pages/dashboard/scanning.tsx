@@ -3171,10 +3171,12 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                               </button>
                             </Link>
                           ) : (
-                            <div className="bg-gray-700/50 flex items-center justify-center text-gray-400 text-base font-semibold rounded-br-xl h-12">
-                              <Shield className="w-4 h-4 mr-2" />
-                              Not Exploitable
-                            </div>
+                            <Link href="/dashboard/red-agent">
+                              <button className="bg-red-700/50 hover:bg-red-600/50 flex items-center justify-center text-red-400 hover:text-red-300 text-base font-semibold rounded-br-xl h-12 w-full transition-all duration-300 cursor-pointer">
+                                <Shield className="w-4 h-4 mr-2" />
+                                Not Exploitable
+                              </button>
+                            </Link>
                           )}
                         </div>
                       </motion.div>
