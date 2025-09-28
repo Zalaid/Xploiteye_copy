@@ -215,6 +215,7 @@ export function ScanningModule() {
   const [terminalLines, setTerminalLines] = useState<any[]>([])
   const [currentScanType, setCurrentScanType] = useState<string>('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [showPdfNotification, setShowPdfNotification] = useState(false)
   const [actualPortsScanned, setActualPortsScanned] = useState(0)
   const [actualServicesFound, setActualServicesFound] = useState(0)
   const [actualVulnerabilitiesFound, setActualVulnerabilitiesFound] = useState(0)
@@ -313,6 +314,18 @@ export function ScanningModule() {
 
     // Simple cleanup - no complex tab management needed
     console.log(`🛑 [PROGRESS] Stopped animation`)
+  }
+
+  // Show PDF generation notification
+  const showPdfGenerationNotification = () => {
+    console.log(`📄 [NOTIFICATION] Showing PDF generation slider`)
+    setShowPdfNotification(true)
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      console.log(`📄 [NOTIFICATION] Auto-hiding PDF notification after 5 seconds`)
+      setShowPdfNotification(false)
+    }, 5000)
   }
 
   // Debug effect to track scan type changes
@@ -1637,6 +1650,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
                 console.log(`🎯 [BACKEND] Progress forced to 100% due to backend completion status and synced to all tabs`)
 
+                // Show PDF generation notification immediately
+                showPdfGenerationNotification()
+
                 // Auto-reset to idle state after 3 seconds to allow new scans
                 setTimeout(() => {
                   console.log("🧹 [AUTO-RESET] Automatically resetting completed scan to idle state")
@@ -1763,6 +1779,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
             // Refresh scan history
             loadScanHistory()
+
+            // Show PDF generation notification immediately
+            showPdfGenerationNotification()
 
             // Auto-reset to idle state after 3 seconds to allow new scans
             setTimeout(() => {
@@ -2134,6 +2153,50 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
   return (
     <div className="space-y-8 relative min-h-screen">
+
+      {/* PDF Generation Notification Slider */}
+      <AnimatePresence>
+        {showPdfNotification && (
+          <motion.div
+            initial={{ x: 400, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 400, opacity: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              duration: 0.5
+            }}
+            className="fixed top-20 right-6 z-50 max-w-sm"
+          >
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg shadow-2xl border border-blue-500/30">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">
+                    📄 PDF report generating in background
+                  </p>
+                  <p className="text-xs text-blue-100 mt-1">
+                    Check Reports section or your email
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPdfNotification(false)}
+                  className="flex-shrink-0 ml-2 text-blue-200 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div
         id="scan-start"
