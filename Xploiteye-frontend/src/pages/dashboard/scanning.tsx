@@ -257,36 +257,10 @@ export function ScanningModule() {
   const startProgressAnimation = (scanType: string) => {
     console.log(`🎬 [PROGRESS] Starting animation for ${scanType} scan`)
 
-    // Determine if this tab should control the animation
-    const shouldControlAnimation = progressSync.isMasterTab()
+    // Simple progress animation - no complex tab management
+    console.log(`🆕 [PROGRESS] Starting animation for ${scanType} scan`)
 
-    if (shouldControlAnimation) {
-      console.log(`👑 [PROGRESS] This tab will control animation`)
-      progressSync.setMasterTab()
-
-      // Check current progress - don't reset if already set
-      let startProgress = scanProgress
-
-      // If progress is 0, check for existing progress to continue from
-      if (startProgress === 0) {
-        const existingProgress = progressSync.loadProgress()
-        if (existingProgress && existingProgress.scanId === currentScanId) {
-          startProgress = existingProgress.progress
-          console.log(`🔄 [PROGRESS] Continuing from existing storage: ${startProgress}%`)
-        } else {
-          console.log(`🆕 [PROGRESS] Starting new animation from 0%`)
-        }
-
-        // Only set progress if we found a different value
-        if (startProgress !== scanProgress) {
-          setScanProgress(startProgress)
-        }
-      } else {
-        console.log(`🔄 [PROGRESS] Continuing from current progress: ${startProgress}%`)
-      }
-
-      // Save current progress to sync storage
-      progressSync.saveProgress(startProgress, currentScanId || '', scanType)
+    let startProgress = scanProgress || 0
 
       // Clear any existing interval
       if (progressInterval) {
@@ -313,13 +287,11 @@ export function ScanningModule() {
             if (newProgress >= 95) {
               clearInterval(interval)
               setProgressInterval(null)
-              // Sync final progress to all tabs
-              progressSync.saveProgress(95, currentScanId || '', scanType)
+              // Stop at 95% and wait for backend completion
               return 95 // Stop at 95% and wait for backend completion
             }
 
-            // Sync progress to all tabs
-            progressSync.saveProgress(newProgress, currentScanId || '', scanType)
+            // Progress updated
             return newProgress
           })
         }, 500)
@@ -330,19 +302,6 @@ export function ScanningModule() {
         setProgressInterval(null)
       }
 
-    } else {
-      console.log(`📖 [PROGRESS] This tab will read progress from master tab`)
-
-      // Load current progress from master tab
-      const currentProgress = progressSync.loadProgress()
-      if (currentProgress && currentProgress.scanId === currentScanId) {
-        setScanProgress(currentProgress.progress)
-        console.log(`📊 [PROGRESS] Loaded progress from master: ${currentProgress.progress}%`)
-      }
-
-      // Don't start animation, just read from storage
-      setProgressInterval(null)
-    }
   }
 
   // Stop progress animation and cleanup
@@ -352,12 +311,8 @@ export function ScanningModule() {
       setProgressInterval(null)
     }
 
-    // Clear master tab if this tab was controlling animation
-    if (progressSync.isMasterTab()) {
-      progressSync.clearMasterTab()
-      progressSync.clearProgress()
-      console.log(`🛑 [PROGRESS] Stopped animation and cleared master tab`)
-    }
+    // Simple cleanup - no complex tab management needed
+    console.log(`🛑 [PROGRESS] Stopped animation`)
   }
 
   // Debug effect to track scan type changes
@@ -372,13 +327,12 @@ export function ScanningModule() {
     })
   }, [currentScanType, actualPortsScanned, actualServicesFound, actualVulnerabilitiesFound, actualOpenPortsFound])
 
-  // Save state when isScanning changes to ensure localStorage sync
+  // Save state when key values change for navigation persistence
   useEffect(() => {
     if (currentScanId) {
-      console.log(`💾 isScanning changed to: ${isScanning}, saving to localStorage`)
       saveScanState()
     }
-  }, [isScanning, currentScanId])
+  }, [isScanning, currentScanId, scanProgress, scanStatus])
 
   // Save progress with timing information for time-based calculation
   useEffect(() => {
@@ -389,275 +343,95 @@ export function ScanningModule() {
         progress: scanProgress,
         timestamp: Date.now(),
         scanType: currentScanType,
-        startTime: localStorage.getItem(`scan_start_${currentScanId}`) || Date.now()
+        startTime: Date.now()
       }
 
-      localStorage.setItem(`scan_progress_${currentScanId}`, JSON.stringify(progressData))
-      saveScanState({ scanProgress: scanProgress })
+      saveScanState()
     }
   }, [scanProgress, currentScanId, currentScanType])
 
-  // Enhanced storage management with user isolation and versioning
-  const STORAGE_VERSION = '1.0'
-  const STORAGE_PREFIX = 'xploiteye_v1'
+  // Simple scan state management - no complex versioning or user isolation
+  const CURRENT_SCAN_KEY = 'xploiteye_current_scan'
 
-  // Generate user-specific storage keys
-  const getStorageKey = (key: string) => {
-    const userId = apiCall ? localStorage.getItem('user_id') || 'anonymous' : 'anonymous'
-    return `${STORAGE_PREFIX}_${key}_user_${userId}`
-  }
+  // Simple state management functions
+  const saveScanStateToStorage = () => {
+    if (!currentScanId) return false
 
-  const SCAN_STATE_KEY = getStorageKey('active_scan')
-  const SCAN_DATA_KEY = getStorageKey('scan_data')
-  const SCAN_HISTORY_KEY = getStorageKey('scan_history')
-  const PROGRESS_SYNC_KEY = getStorageKey('progress_sync')
-
-  // Enhanced storage utilities with validation and cleanup
-  const storageUtils = {
-    // Save data with metadata and validation
-    save: (key: string, data: any) => {
-      try {
-        const userId = localStorage.getItem('user_id')
-        const wrappedData = {
-          data,
-          metadata: {
-            userId,
-            timestamp: Date.now(),
-            version: STORAGE_VERSION,
-            expiresAt: Date.now() + (2 * 60 * 60 * 1000), // 2 hours
-            pageUrl: window.location.pathname
-          }
-        }
-        localStorage.setItem(key, JSON.stringify(wrappedData))
-        console.log(`💾 [STORAGE] Saved ${key} with metadata:`, wrappedData.metadata)
-        return true
-      } catch (error) {
-        console.error(`❌ [STORAGE] Failed to save ${key}:`, error)
-        return false
-      }
-    },
-
-    // Load data with validation
-    load: (key: string) => {
-      try {
-        const stored = localStorage.getItem(key)
-        if (!stored) return null
-
-        const parsed = JSON.parse(stored)
-        const currentUserId = localStorage.getItem('user_id')
-
-        // Validate user ownership
-        if (parsed.metadata?.userId !== currentUserId) {
-          console.log(`🚫 [STORAGE] ${key} belongs to different user, removing`)
-          localStorage.removeItem(key)
-          return null
-        }
-
-        // Check expiration
-        if (parsed.metadata?.expiresAt && Date.now() > parsed.metadata.expiresAt) {
-          console.log(`⏰ [STORAGE] ${key} expired, removing`)
-          localStorage.removeItem(key)
-          return null
-        }
-
-        // Validate version compatibility
-        if (parsed.metadata?.version !== STORAGE_VERSION) {
-          console.log(`🔄 [STORAGE] ${key} version mismatch, migrating or removing`)
-          localStorage.removeItem(key)
-          return null
-        }
-
-        console.log(`✅ [STORAGE] Loaded ${key} successfully`)
-        return parsed.data
-      } catch (error) {
-        console.error(`❌ [STORAGE] Failed to load ${key}:`, error)
-        localStorage.removeItem(key) // Remove corrupted data
-        return null
-      }
-    },
-
-    // Remove specific key
-    remove: (key: string) => {
-      try {
-        localStorage.removeItem(key)
-        console.log(`🗑️ [STORAGE] Removed ${key}`)
-        return true
-      } catch (error) {
-        console.error(`❌ [STORAGE] Failed to remove ${key}:`, error)
-        return false
-      }
-    },
-
-    // Clear all user data
-    clearUserData: () => {
-      try {
-        const userId = localStorage.getItem('user_id')
-        let removedCount = 0
-
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes(STORAGE_PREFIX) && key.includes(`user_${userId}`)) {
-            localStorage.removeItem(key)
-            removedCount++
-          }
-        })
-
-        console.log(`🧹 [STORAGE] Cleared ${removedCount} items for user ${userId}`)
-        return true
-      } catch (error) {
-        console.error(`❌ [STORAGE] Failed to clear user data:`, error)
-        return false
-      }
-    },
-
-    // Cleanup expired data across all users
-    cleanup: () => {
-      try {
-        let removedCount = 0
-        const now = Date.now()
-
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes(STORAGE_PREFIX)) {
-            try {
-              const stored = localStorage.getItem(key)
-              if (stored) {
-                const parsed = JSON.parse(stored)
-                if (parsed.metadata?.expiresAt && now > parsed.metadata.expiresAt) {
-                  localStorage.removeItem(key)
-                  removedCount++
-                }
-              }
-            } catch (error) {
-              // Remove corrupted data
-              localStorage.removeItem(key)
-              removedCount++
-            }
-          }
-        })
-
-        if (removedCount > 0) {
-          console.log(`🧹 [STORAGE] Cleaned up ${removedCount} expired items`)
-        }
-        return removedCount
-      } catch (error) {
-        console.error(`❌ [STORAGE] Cleanup failed:`, error)
-        return 0
-      }
-    }
-  }
-
-  // Progress synchronization utilities for cross-tab sync
-  const progressSync = {
-    // Save progress for all tabs to read
-    saveProgress: (progress: number, scanId: string, scanType: string) => {
-      const progressData = {
-        progress,
-        scanId,
-        scanType,
-        timestamp: Date.now(),
-        tabId: sessionStorage.getItem('sessionId')
-      }
-      return storageUtils.save(PROGRESS_SYNC_KEY, progressData)
-    },
-
-    // Load current progress
-    loadProgress: () => {
-      return storageUtils.load(PROGRESS_SYNC_KEY)
-    },
-
-    // Clear progress sync
-    clearProgress: () => {
-      return storageUtils.remove(PROGRESS_SYNC_KEY)
-    },
-
-    // Check if this tab should control progress animation
-    isMasterTab: () => {
-      const currentSessionId = sessionStorage.getItem('sessionId')
-      const masterTabId = localStorage.getItem('masterTabId')
-
-      // If no master tab exists, this tab can become master
-      if (!masterTabId) return true
-
-      // If this tab was the master, it remains master
-      if (masterTabId === currentSessionId) return true
-
-      // Check if master tab is still alive (updated recently)
-      const progressData = storageUtils.load(PROGRESS_SYNC_KEY)
-      if (progressData) {
-        const timeSinceUpdate = Date.now() - progressData.timestamp
-        // If master hasn't updated in 3 seconds, take over
-        if (timeSinceUpdate > 3000) {
-          console.log(`👑 [PROGRESS] Master tab inactive, taking over`)
-          return true
-        }
-      }
-
-      return false
-    },
-
-    // Set this tab as master
-    setMasterTab: () => {
-      const sessionId = sessionStorage.getItem('sessionId')
-      if (sessionId) {
-        localStorage.setItem('masterTabId', sessionId)
-        console.log(`👑 [PROGRESS] Set as master tab: ${sessionId}`)
-      }
-    },
-
-    // Clear master tab
-    clearMasterTab: () => {
-      localStorage.removeItem('masterTabId')
-      console.log(`👑 [PROGRESS] Cleared master tab`)
-    }
-  }
-
-  // Enhanced scan state management with conflict detection
-  const saveScanState = (overrideState?: Partial<{
-    currentScanId: string | null,
-    isScanning: boolean,
-    targetInput: string,
-    scanProgress: number,
-    scanStatus: string,
-    scanMessage: string,
-    currentScanType: string,
-    activeScan: any,
-    hasActiveScan: boolean
-  }>) => {
     try {
-      const stateToSave = {
-        currentScanId: overrideState?.currentScanId ?? currentScanId,
-        isScanning: overrideState?.isScanning ?? isScanning,
-        targetInput: overrideState?.targetInput ?? targetInput,
-        scanProgress: overrideState?.scanProgress ?? scanProgress,
-        scanStatus: overrideState?.scanStatus ?? scanStatus,
-        scanMessage: overrideState?.scanMessage ?? scanMessage,
-        currentScanType: overrideState?.currentScanType ?? currentScanType,
-        activeScan: overrideState?.activeScan ?? activeScan,
-        hasActiveScan: overrideState?.hasActiveScan ?? hasActiveScan,
-        lastUpdated: Date.now(),
-        sessionId: sessionStorage.getItem('sessionId') || Math.random().toString(36)
+      const state = {
+        currentScanId,
+        isScanning,
+        targetInput,
+        scanProgress,
+        scanStatus,
+        scanMessage,
+        currentScanType,
+        hasActiveScan,
+        activeScan,  // Include scan results
+        actualPortsScanned,
+        actualServicesFound,
+        actualVulnerabilitiesFound,
+        actualOpenPortsFound,
+        timestamp: Date.now()
       }
 
-      // Store session ID for tab conflict detection
-      if (!sessionStorage.getItem('sessionId')) {
-        sessionStorage.setItem('sessionId', stateToSave.sessionId)
-      }
-
-      const success = storageUtils.save(SCAN_STATE_KEY, stateToSave)
-      if (success) {
-        console.log("💾 [STATE] Saved scan state:", {
-          scanId: stateToSave.currentScanId,
-          isScanning: stateToSave.isScanning,
-          scanStatus: stateToSave.scanStatus,
-          target: stateToSave.targetInput,
-          sessionId: stateToSave.sessionId,
-          explicit: !!overrideState
-        })
-      }
-      return success
+      localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+      console.log("💾 [STATE] Saved scan state for navigation")
+      return true
     } catch (error) {
       console.error("❌ [STATE] Failed to save scan state:", error)
       return false
     }
+  }
+
+  const loadScanStateFromStorage = () => {
+    try {
+      const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+      if (!stored) return false
+
+      const state = JSON.parse(stored)
+
+      // Check if state is too old (max 2 hours)
+      if (Date.now() - state.timestamp > 2 * 60 * 60 * 1000) {
+        localStorage.removeItem(CURRENT_SCAN_KEY)
+        return false
+      }
+
+      // Restore all state
+      setCurrentScanId(state.currentScanId)
+      setIsScanning(state.isScanning)
+      setTargetInput(state.targetInput)
+      setScanProgress(state.scanProgress)
+      setScanStatus(state.scanStatus)
+      setScanMessage(state.scanMessage)
+      setCurrentScanType(state.currentScanType)
+      setHasActiveScan(state.hasActiveScan)
+      setActiveScan(state.activeScan || null)  // Restore scan results
+      setActualPortsScanned(state.actualPortsScanned || 0)
+      setActualServicesFound(state.actualServicesFound || 0)
+      setActualVulnerabilitiesFound(state.actualVulnerabilitiesFound || 0)
+      setActualOpenPortsFound(state.actualOpenPortsFound || 0)
+
+      // Resume polling if scan was active
+      if (state.isScanning && state.currentScanId) {
+        console.log("🔄 [STATE] Resuming scan polling after navigation")
+        setIsPolling(true)
+        pollScanStatus(state.currentScanId)
+      }
+
+      console.log("✅ [STATE] Restored scan state after navigation")
+      return true
+    } catch (error) {
+      console.error("❌ [STATE] Failed to restore scan state:", error)
+      localStorage.removeItem(CURRENT_SCAN_KEY)
+      return false
+    }
+  }
+
+
+  // Simple scan state wrapper (replaces complex function)
+  const saveScanState = () => {
+    return saveScanStateToStorage()
   }
 
   // Calculate current ongoing progress based on elapsed time
@@ -707,168 +481,19 @@ export function ScanningModule() {
     }
   }
 
-  // Enhanced restore with validation and conflict detection
+  // Simple restore wrapper (replaces complex function)
   const restoreScanState = () => {
-    try {
-      console.log("🔄 [STATE] Attempting to restore scan state...")
-
-      const state = storageUtils.load(SCAN_STATE_KEY)
-      if (!state) {
-        console.log("📭 [STATE] No valid state found to restore")
-        return false
-      }
-
-      // Validate state freshness (max 2 hours)
-      const maxAge = 2 * 60 * 60 * 1000 // 2 hours
-      if (Date.now() - state.lastUpdated > maxAge) {
-        console.log("⏰ [STATE] State too old, not restoring")
-        storageUtils.remove(SCAN_STATE_KEY)
-        return false
-      }
-
-      // Check for tab conflicts with better detection
-      const currentSessionId = sessionStorage.getItem('sessionId') || Math.random().toString(36)
-      const wasActiveInDifferentTab = state.sessionId !== currentSessionId
-
-      // Also check if this is a page refresh (no sessionId means fresh load)
-      const isPageRefresh = !sessionStorage.getItem('sessionId')
-
-      if (wasActiveInDifferentTab && !isPageRefresh) {
-        console.log("🔀 [STATE] State from different tab detected")
-        // Don't restore isScanning for different tabs to prevent conflicts
-        state.isScanning = false
-      } else if (isPageRefresh) {
-        console.log("🔄 [STATE] Page refresh detected, treating as same tab")
-        // Page refresh should continue as the same tab
-      }
-
-      // Restore state with validation and proper progress restoration
-      setCurrentScanId(state.currentScanId)
-      setIsScanning(wasActiveInDifferentTab ? false : state.isScanning)
-      setTargetInput(state.targetInput)
-
-      // Calculate current ongoing progress based on elapsed time
-      let restoredProgress = 0
-      if (state.currentScanId && state.currentScanType && state.scanStatus === 'scanning') {
-        restoredProgress = calculateCurrentProgress(state.currentScanId, state.currentScanType)
-        console.log(`📊 [RESTORE] Time-based progress calculated: ${Math.round(restoredProgress)}%`)
-      } else {
-        // For completed or non-active scans, use saved progress
-        const directProgress = localStorage.getItem(`scan_progress_${state.currentScanId}`)
-        restoredProgress = directProgress ? parseFloat(directProgress) : (state.scanProgress || 0)
-        console.log(`📊 [RESTORE] Using saved progress for inactive scan: ${restoredProgress}%`)
-      }
-
-      setScanProgress(restoredProgress)
-      console.log(`📊 [RESTORE] Final restored progress: ${Math.round(restoredProgress)}%`)
-
-      setScanStatus(state.scanStatus)
-      setScanMessage(state.scanMessage)
-      setCurrentScanType(state.currentScanType)
-      setActiveScan(state.activeScan)
-      setHasActiveScan(state.hasActiveScan || false)
-
-      // CRITICAL: Re-validate IP when restoring state
-      if (state.targetInput) {
-        const validation = validateIPInput(state.targetInput)
-        setIsValidIP(validation.isValid)
-        setIpValidationError(validation.isValid ? "" : validation.message)
-        console.log(`🔍 [STATE] Re-validated IP on restore: ${state.targetInput} -> ${validation.isValid}`)
-      }
-
-      // Store current session ID
-      sessionStorage.setItem('sessionId', currentSessionId)
-
-      console.log("✅ [STATE] Restored scan state:", {
-        scanId: state.currentScanId,
-        isScanning: wasActiveInDifferentTab ? false : state.isScanning,
-        scanStatus: state.scanStatus,
-        target: state.targetInput,
-        wasActiveInDifferentTab
-      })
-
-      // Resume monitoring only if scan is truly active and not from different tab
-      if (state.currentScanId && !wasActiveInDifferentTab && (state.scanStatus === 'scanning' || state.isScanning)) {
-        console.log("🔄 [STATE] Resuming scan monitoring for:", state.currentScanId)
-
-        // Clear old data for fresh monitoring
-        setFoundCVEs([])
-        setHasActiveScan(true)
-        setActualPortsScanned(0)
-        setActualServicesFound(0)
-        setActualVulnerabilitiesFound(0)
-        setActualOpenPortsFound(0)
-
-        // Resume progress animation for master tab
-        if (progressSync.isMasterTab()) {
-          console.log("👑 [STATE] Resuming as master tab")
-
-          // Progress is already restored above, check if we should continue animation
-          if (restoredProgress < 95 && state.scanStatus === 'scanning') {
-            console.log(`🔄 [STATE] Continuing animation from ${Math.round(restoredProgress)}%`)
-            // Wait a bit for state to settle, then start animation
-            setTimeout(() => {
-              startProgressAnimation(state.currentScanType)
-            }, 500)
-          } else {
-            console.log(`⏸️ [STATE] Not starting animation: progress=${Math.round(restoredProgress)}%, status=${state.scanStatus}`)
-            // Save current progress to sync storage
-            progressSync.saveProgress(restoredProgress, state.currentScanId, state.currentScanType)
-          }
-        } else {
-          console.log("📖 [STATE] Resuming as slave tab, reading progress")
-          const currentProgress = progressSync.loadProgress()
-          if (currentProgress && currentProgress.scanId === state.currentScanId) {
-            setScanProgress(currentProgress.progress)
-            console.log(`📊 [STATE] Updated progress from master: ${currentProgress.progress}%`)
-          }
-          // Note: savedProgress is already set above as fallback
-        }
-
-        // Resume polling with delay to avoid conflicts
-        setTimeout(() => {
-          pollScanStatus(state.currentScanId)
-        }, 1500)
-      } else if (state.currentScanId && wasActiveInDifferentTab && (state.scanStatus === 'scanning' || state.isScanning)) {
-        console.log("🔀 [STATE] Different tab - showing read-only scan status")
-
-        // Show scan as active but read-only in this tab
-        setHasActiveScan(true)
-
-        // Load progress from master tab
-        const currentProgress = progressSync.loadProgress()
-        if (currentProgress && currentProgress.scanId === state.currentScanId) {
-          setScanProgress(currentProgress.progress)
-          console.log(`📊 [STATE] Loaded progress from master tab: ${currentProgress.progress}%`)
-        }
-
-        // Start polling to get updates but don't control animation
-        setTimeout(() => {
-          pollScanStatus(state.currentScanId)
-        }, 2000)
-      } else {
-        console.log("ℹ️ [STATE] Not resuming polling:", {
-          hasScanId: !!state.currentScanId,
-          differentTab: wasActiveInDifferentTab,
-          scanStatus: state.scanStatus,
-          isScanning: state.isScanning
-        })
-      }
-
-      return true
-    } catch (error) {
-      console.error("❌ [STATE] Failed to restore scan state:", error)
-      storageUtils.remove(SCAN_STATE_KEY)
-      return false
-    }
+    // Use our simple restore function instead of complex logic
+    return loadScanStateFromStorage()
   }
 
-  // Enhanced clear state with proper cleanup
+
+
+  // Simple clear state function
   const clearScanState = () => {
     try {
-      storageUtils.remove(SCAN_STATE_KEY)
-      storageUtils.remove(SCAN_DATA_KEY)
-      console.log("🗑️ [STATE] Cleared scan state completely")
+      localStorage.removeItem(CURRENT_SCAN_KEY)
+      console.log("🗑️ [STATE] Cleared scan state")
       return true
     } catch (error) {
       console.error("❌ [STATE] Failed to clear scan state:", error)
@@ -876,9 +501,20 @@ export function ScanningModule() {
     }
   }
 
-  // Enhanced cleanup with user isolation
+  // Simple cleanup function
   const clearAllScanData = () => {
-    return storageUtils.clearUserData()
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('xploiteye') || key.includes('scan_')) {
+          localStorage.removeItem(key)
+        }
+      })
+      console.log("🧹 [STATE] Cleared all scan data")
+      return true
+    } catch (error) {
+      console.error("❌ [STATE] Failed to clear all scan data:", error)
+      return false
+    }
   }
 
   // Handle IP input validation
@@ -1365,13 +1001,29 @@ export function ScanningModule() {
   const handleScanLaunch = async (scanType: string) => {
     console.log(`🔵 [SCAN LAUNCH] Phase 2 started: handleScanLaunch(${scanType})`)
 
-    // Critical: Check for existing active scans to prevent conflicts
-    const existingState = storageUtils.load(SCAN_STATE_KEY)
-    if (existingState?.isScanning && existingState?.currentScanId) {
-      console.log(`🚫 [SCAN LAUNCH] Active scan detected: ${existingState.currentScanId}`)
-      setScanErrorMessage("An active scan is already running. Please wait for it to complete.")
-      setTimeout(() => setScanErrorMessage(""), 5000)
-      return
+    // Clean up all old scan data before starting new scan
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('scan_progress_') || key.includes('scan_start_') || key.includes('scan_state_') || key.includes('xploiteye_v1_')) {
+        localStorage.removeItem(key)
+        console.log(`🧹 [CLEANUP] Removed old localStorage key: ${key}`)
+      }
+    })
+
+    // Check for existing active scans to prevent conflicts
+    const existingState = localStorage.getItem(CURRENT_SCAN_KEY)
+    if (existingState) {
+      try {
+        const state = JSON.parse(existingState)
+        if (state.isScanning && state.currentScanId) {
+          console.log(`🚫 [SCAN LAUNCH] Active scan detected: ${state.currentScanId}`)
+          setScanErrorMessage("An active scan is already running. Please wait for it to complete.")
+          setTimeout(() => setScanErrorMessage(""), 5000)
+          return
+        }
+      } catch (error) {
+        // Clear corrupted state
+        localStorage.removeItem(CURRENT_SCAN_KEY)
+      }
     }
 
     // Stop any existing polling to prevent conflicts
@@ -1501,22 +1153,33 @@ export function ScanningModule() {
           hasActiveScan: true,
           timestamp: Date.now()
         }
-        localStorage.setItem(SCAN_STATE_KEY, JSON.stringify(newScanState))
+        // State will be saved by saveScanState call below
 
         // Start incremental progress simulation
         const progressTimer = simulateIncrementalProgress(scanType, scanData.scan_id)
 
-        // Save scan state to localStorage with explicit isScanning=true to fix timing
-        saveScanState({
-          currentScanId: scanData.scan_id,
-          isScanning: true,  // Explicitly set to true since we just launched
-          scanStatus: 'scanning',
-          scanMessage: `XploitEye ${scanType} scan is in progress...`,
-          currentScanType: scanType,
-          hasActiveScan: true
-        })
+        // Save scan state to localStorage immediately with correct scan ID
+        const state = {
+          currentScanId: scanData.scan_id,  // Use the new scan ID directly
+          isScanning,
+          targetInput,
+          scanProgress,
+          scanStatus,
+          scanMessage,
+          currentScanType,
+          hasActiveScan,
+          activeScan,
+          actualPortsScanned,
+          actualServicesFound,
+          actualVulnerabilitiesFound,
+          actualOpenPortsFound,
+          timestamp: Date.now()
+        }
+        localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+        console.log(`💾 [SCAN START] Saved scan state with ID ${scanData.scan_id}`)
 
         // Start polling for scan status
+        console.log(`🚀 [SCAN START] About to start polling for scan ${scanData.scan_id}`)
         pollScanStatus(scanData.scan_id, progressTimer)
       } else {
         const error = await response.json()
@@ -1535,6 +1198,8 @@ export function ScanningModule() {
   }
 
   const pollScanStatus = async (scanId: string, progressTimer?: any) => {
+    console.log(`🚀 [POLLING] Starting pollScanStatus for scan ${scanId}`)
+
     // Enhanced conflict prevention
     if (isPolling) {
       console.log(`🚫 [POLLING] Already active for scan ${scanId}, skipping duplicate`)
@@ -1542,7 +1207,12 @@ export function ScanningModule() {
     }
 
     // Validate scan ownership and freshness
-    const currentState = storageUtils.load(SCAN_STATE_KEY)
+    const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+    if (!stored) {
+      console.log(`🚫 [POLLING] No scan state found, aborting`)
+      return
+    }
+    const currentState = JSON.parse(stored)
     if (!currentState || currentState.currentScanId !== scanId) {
       console.log(`🚫 [POLLING] Scan ${scanId} not in current state, aborting`)
       return
@@ -1577,7 +1247,13 @@ export function ScanningModule() {
       }
 
       // Validate we should still be polling this scan
-      const currentState = storageUtils.load(SCAN_STATE_KEY)
+      const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+      if (!stored) {
+        console.log(`🚫 [POLLING] No scan state found, stopping`)
+        stopPolling('scan_changed')
+        return
+      }
+      const currentState = JSON.parse(stored)
       if (!currentState || currentState.currentScanId !== scanId) {
         console.log(`🚫 [POLLING] Scan ${scanId} no longer current (poll #${pollCount}), stopping`)
         stopPolling('scan_changed')
@@ -1592,14 +1268,18 @@ export function ScanningModule() {
       }
 
       try {
+        console.log(`📡 [POLLING] Making API call for scan ${scanId}`)
         const response = await fetch(`http://localhost:8000/scanning/status/${scanId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         })
 
+        console.log(`📡 [POLLING] API response status: ${response.status}`)
+
         if (response.ok) {
           const scanData = await response.json()
+          console.log(`📡 [POLLING] Received scan data:`, scanData)
 
           // Note: Don't save full state during polling to avoid overwriting UI state
           // Only update progress-related fields if needed
@@ -1730,11 +1410,9 @@ export function ScanningModule() {
                 setScanStatus('completed')
                 setScanMessage('Scan completed! Results are ready.')
 
-                // Update localStorage to reflect 100% completion
-                localStorage.setItem(`scan_progress_${scanId}`, '100')
+                // Scan completed
 
-                // Force sync 100% progress to all tabs immediately
-                progressSync.saveProgress(100, scanId, currentScanType || 'light')
+                // Progress completed
 
                 console.log(`🎯 [BACKEND] Progress forced to 100% due to backend completion status and synced to all tabs`)
 
@@ -1842,11 +1520,9 @@ export function ScanningModule() {
             stopProgressAnimation()
             setScanProgress(100)
 
-            // Update localStorage to reflect 100% completion
-            localStorage.setItem(`scan_progress_${scanId}`, '100')
+            // Scan completed
 
-            // Force sync 100% progress to all tabs immediately
-            progressSync.saveProgress(100, scanId, currentScanType || 'light')
+            // Progress completed
 
             console.log(`🎯 [BACKEND] Progress forced to 100% due to backend completion status and synced to all tabs`)
 
@@ -1859,19 +1535,28 @@ export function ScanningModule() {
               console.log('Audio creation failed:', e)
             }
 
-            // Reset scanning state immediately - no timeout to prevent conflicts
-            console.log(`✅ [COMPLETED] Scan ${scanId} finished - resetting state immediately`)
+            // Update activeScan with final results before resetting state
+            setActiveScan((prev: any) => {
+              if (prev && prev.id === scanId) {
+                return {
+                  ...prev,
+                  status: 'completed',
+                  scanResults: scanData.results,  // Add the JSON results here
+                  completedAt: scanData.completed_at
+                }
+              }
+              return prev
+            })
+
+            // Reset scanning state but preserve results for display
+            console.log(`✅ [COMPLETED] Scan ${scanId} finished - results saved for display`)
             setIsScanning(false)
-            setActiveScan(null)
             setHasActiveScan(false)
             setIsPolling(false)
-            clearScanState()
 
-            // Save updated state immediately
-            saveScanState({
-              isScanning: false,
-              scanStatus: 'completed'
-            })
+            // Update state and save
+            setScanStatus('completed')
+            saveScanState()
 
             // Refresh scan history
             loadScanHistory()
@@ -1901,6 +1586,10 @@ export function ScanningModule() {
             clearScanState()
           }
         } else {
+          console.error(`❌ [POLLING] API request failed with status ${response.status}`)
+          const errorText = await response.text().catch(() => 'Unknown error')
+          console.error(`❌ [POLLING] Error response: ${errorText}`)
+
           // Handle case where scan is not found (maybe completed while away)
           console.log('⚠️ Scan not found, it may have completed while away')
           addTerminalLine('warning', '⚠️ Scan status not found - it may have completed')
@@ -1921,8 +1610,8 @@ export function ScanningModule() {
           loadCVEs(targetInput)
         }
       } catch (error) {
-        // Silent error handling for VPN switching - don't show to user
-        console.log('🔄 Network interruption during VPN switch (normal behavior)')
+        console.error(`❌ [POLLING] Error fetching scan status for ${scanId}:`, error)
+        console.log('🔄 Continuing polling after error...')
         setTimeout(poll, 5000) // Continue polling
       }
     }
@@ -1987,73 +1676,6 @@ export function ScanningModule() {
     }
   }
 
-  // Cross-tab synchronization
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      // Only handle our storage keys
-      if (!event.key?.includes(STORAGE_PREFIX)) return
-
-      console.log(`🔄 [SYNC] Storage change detected:`, {
-        key: event.key,
-        newValue: event.newValue ? 'has_data' : 'null',
-        url: event.url
-      })
-
-      // Handle scan state changes from other tabs
-      if (event.key === SCAN_STATE_KEY) {
-        if (event.newValue) {
-          try {
-            const newState = JSON.parse(event.newValue)
-            const currentSessionId = sessionStorage.getItem('sessionId')
-
-            // Only sync if from different tab
-            if (newState.data?.sessionId !== currentSessionId) {
-              console.log(`🔄 [SYNC] Syncing state from other tab`)
-
-              // Update only non-conflicting state
-              setTargetInput(newState.data.targetInput)
-              setScanStatus(newState.data.scanStatus)
-              setScanMessage(newState.data.scanMessage)
-              setCurrentScanType(newState.data.currentScanType)
-
-              // Don't sync isScanning to prevent conflicts
-              // Progress syncing handled separately below
-            }
-          } catch (error) {
-            console.error('❌ [SYNC] Failed to parse storage change:', error)
-          }
-        } else {
-          // State cleared in other tab
-          console.log(`🔄 [SYNC] State cleared in other tab`)
-        }
-      }
-
-      // Handle progress synchronization from other tabs
-      if (event.key === PROGRESS_SYNC_KEY) {
-        if (event.newValue) {
-          try {
-            const progressData = JSON.parse(event.newValue)
-            const currentSessionId = sessionStorage.getItem('sessionId')
-
-            // Only sync if from different tab and for current scan
-            if (progressData.data?.tabId !== currentSessionId &&
-                progressData.data?.scanId === currentScanId) {
-              console.log(`📊 [PROGRESS SYNC] Updating progress from other tab: ${progressData.data.progress}%`)
-              setScanProgress(progressData.data.progress)
-            }
-          } catch (error) {
-            console.error('❌ [PROGRESS SYNC] Failed to parse progress change:', error)
-          }
-        }
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-    }
-  }, [SCAN_STATE_KEY, STORAGE_PREFIX])
 
   // Initialize CVE API and component state
   useEffect(() => {
@@ -2063,36 +1685,43 @@ export function ScanningModule() {
       console.log("✅ CVE API initialized with AuthContext")
     }
 
-    // Run cleanup on startup
-    const cleanupCount = storageUtils.cleanup()
-    console.log(`🧹 [INIT] Startup cleanup completed: ${cleanupCount} items removed`)
+    // Clean up all scan data on page refresh (keep auth tokens)
+    Object.keys(localStorage).forEach(key => {
+      if (!key.includes('token') && !key.includes('user_id') && !key.includes('auth') &&
+          (key.includes('scan_') || key.includes('xploiteye') || key.includes('progress_'))) {
+        localStorage.removeItem(key)
+        console.log(`🧹 [PAGE REFRESH] Removed scan data: ${key}`)
+      }
+    })
+    console.log(`🧹 [PAGE REFRESH] Scan data cleanup completed`)
 
     // Check for completed scans and clear them
-    const storedState = storageUtils.load(SCAN_STATE_KEY)
-    if (storedState && (storedState.scanStatus === 'completed' || storedState.scanProgress >= 100)) {
-      console.log("🧹 [INIT] Found completed scan, clearing old data")
-      storageUtils.clearUserData()
-      progressSync.clearProgress()
-      progressSync.clearMasterTab()
+    const stored = localStorage.getItem(CURRENT_SCAN_KEY)
+    if (stored) {
+      const storedState = JSON.parse(stored)
+      if (storedState && (storedState.scanStatus === 'completed' || storedState.scanProgress >= 100)) {
+        console.log("🧹 [INIT] Found completed scan, clearing old data")
+        clearAllScanData()
 
-      // Set clean state
-      setTargetInput("")
-      setIsValidIP(false)
-      setIpValidationError("")
-      setScanProgress(0)
-      setScanStatus('idle')
-      setIsScanning(false)
-      setCurrentScanId(null)
+        // Set clean state
+        setTargetInput("")
+        setIsValidIP(false)
+        setIpValidationError("")
+        setScanProgress(0)
+        setScanStatus('idle')
+        setIsScanning(false)
+        setCurrentScanId(null)
 
-      console.log("✅ [INIT] Cleared completed scan data, starting fresh")
-      return // Don't restore anything
+        console.log("✅ [INIT] Cleared completed scan data, starting fresh")
+        return // Don't restore anything
+      }
     }
 
-    // Try to restore scan state only if not a fresh login
-    const restored = restoreScanState()
+    // Try to restore scan state for navigation persistence
+    const restored = loadScanStateFromStorage()
 
     if (restored) {
-      console.log("✅ [INIT] Active scan state restored from localStorage")
+      console.log("✅ [INIT] Active scan state restored after navigation")
     } else {
       console.log("🔄 [INIT] No active scan found to restore")
     }
@@ -2136,9 +1765,7 @@ export function ScanningModule() {
     stopProgressAnimation()
 
     // Clear all user data from localStorage
-    storageUtils.clearUserData()
-    progressSync.clearProgress()
-    progressSync.clearMasterTab()
+    clearAllScanData()
 
     // Reset ALL component state including IP input
     setIsScanning(false)
@@ -2892,8 +2519,8 @@ export function ScanningModule() {
                 // Report generation status
                 isGeneratingReport: isGeneratingReport,
                 portLimit: getPortLimit(currentScanType || 'light'),
-                // Only pass scanResults if scan is completed, not during active scanning
-                scanResults: (scanStatus === 'completed' && !isScanning) ? (activeScan?.scanResults || null) : null
+                // Pass scanResults immediately when backend indicates completion
+                scanResults: activeScan?.scanResults || null
               }
 
               console.log(`🎯 RealTimeScanProgress Data:`, {
