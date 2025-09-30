@@ -345,7 +345,7 @@ class ScanningService:
         return True
 
     async def generate_pdf_report(self, scan_id: str, user: UserInDB, report_name: Optional[str] = None) -> ReportResponse:
-        """Generate PDF report from scan results"""
+        """Generate PDF report from scan results using ISO-standard professional format"""
         scan_data = await self.get_scan_status(scan_id, user)
         if not scan_data:
             return ReportResponse(
@@ -361,20 +361,21 @@ class ScanningService:
                 scan_id=scan_id
             )
 
-        # Check if TXT file exists (preferred) or fall back to JSON file
+        # Check if both JSON and TXT files exist (required for ISO report)
+        json_file_path = scan_data.json_file_path
         txt_file_path = getattr(scan_data, 'txt_file_path', None)
-        if txt_file_path and os.path.exists(txt_file_path):
-            # Use TXT file directly for GPT processing
-            source_file = txt_file_path
-            use_txt_file = True
-        elif scan_data.json_file_path and os.path.exists(scan_data.json_file_path):
-            # Fall back to JSON file
-            source_file = scan_data.json_file_path
-            use_txt_file = False
-        else:
+
+        if not json_file_path or not os.path.exists(json_file_path):
             return ReportResponse(
                 status="error",
-                message="Scan results file not found",
+                message="JSON scan results file not found",
+                scan_id=scan_id
+            )
+
+        if not txt_file_path or not os.path.exists(txt_file_path):
+            return ReportResponse(
+                status="error",
+                message="TXT CVE details file not found",
                 scan_id=scan_id
             )
 
@@ -383,45 +384,47 @@ class ScanningService:
             if not report_name:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 target_clean = scan_data.target.replace('.', '_').replace(':', '_')
-                report_name = f"{user.id}_{target_clean}_{scan_data.scan_type.value}_report_{timestamp}.pdf"
+                report_name = f"ISO_Security_Report_{user.id}_{target_clean}_{scan_data.scan_type.value}_{timestamp}.pdf"
 
             # Ensure .pdf extension
             if not report_name.endswith('.pdf'):
                 report_name += '.pdf'
 
-            if use_txt_file:
-                # Read TXT file directly for GPT processing
-                logging.info(f"Reading TXT file for GPT processing: {source_file}")
-                with open(source_file, 'r', encoding='utf-8') as f:
-                    formatted_text = f.read()
-            else:
-                # Read JSON and convert to text for GPT processing
-                logging.info(f"Reading JSON file and converting to text: {source_file}")
-                with open(source_file, 'r', encoding='utf-8') as f:
-                    scan_results = json.load(f)
-                formatted_text = self._format_scan_results_to_text(scan_results)
-
-            # Generate markdown content using GPT
-            logging.info(f"Generating GPT report content for scan {scan_id}...")
-            markdown_content = generate_full_report(formatted_text)
-
-            # Generate PDF from markdown
+            # Setup output path
             reports_dir = settings.reports_dir
             os.makedirs(reports_dir, exist_ok=True)
             output_path = os.path.join(reports_dir, report_name)
 
-            logging.info(f"Converting to PDF: {output_path}")
-            result = generate_pdf_report(markdown_content, output_path)
+            # Use NEW ISO-standard report generator
+            logging.info(f"🚀 Generating ISO-standard professional report for scan {scan_id}...")
+            logging.info(f"📂 JSON: {json_file_path}")
+            logging.info(f"📂 TXT: {txt_file_path}")
+            logging.info(f"📄 Output: {output_path}")
+
+            # Import the new ISO report generator
+            from app.scanning.report_generator.gpt_prompts import generate_iso_report
+
+            # Generate professional ISO report with charts
+            result = generate_iso_report(
+                json_file_path=json_file_path,
+                txt_file_path=txt_file_path,
+                output_pdf_path=output_path
+            )
 
             if result["status"] == "success":
+                logging.info(f"✅ ISO report generated successfully: {output_path}")
+                logging.info(f"📊 Vulnerabilities: {result.get('total_vulnerabilities', 0)}")
+                logging.info(f"📈 Severity: {result.get('severity_breakdown', {})}")
+
                 return ReportResponse(
                     status="success",
-                    message="PDF report generated successfully",
+                    message="Professional ISO-standard security report generated successfully",
                     pdf_file=report_name,
                     pdf_path=output_path,
                     scan_id=scan_id
                 )
             else:
+                logging.error(f"❌ ISO report generation failed: {result.get('message', 'Unknown error')}")
                 return ReportResponse(
                     status="error",
                     message=result.get("message", "PDF generation failed"),
@@ -429,7 +432,9 @@ class ScanningService:
                 )
 
         except Exception as e:
-            logging.error(f"Failed to generate PDF report for scan {scan_id}: {e}")
+            logging.error(f"❌ Failed to generate ISO report for scan {scan_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return ReportResponse(
                 status="error",
                 message=f"Report generation failed: {str(e)}",

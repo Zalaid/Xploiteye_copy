@@ -182,3 +182,22 @@ def generate_full_report(txt_content):
     sections.append("\n" + generate_recommendations(txt_content))
 
     return "\n".join(sections)
+
+
+def generate_iso_report(json_file_path, txt_file_path, output_pdf_path):
+    """
+    Generate professional ISO-standard security report with charts and professional formatting
+
+    This is the new preferred method for generating reports.
+    Uses GPT-3.5-turbo, ReportLab, and professional security consulting language.
+
+    Args:
+        json_file_path: Path to JSON scan results file
+        txt_file_path: Path to TXT CVE details file
+        output_pdf_path: Path where PDF should be saved
+
+    Returns:
+        dict: Status, message, and report details
+    """
+    from .iso_report_generator import generate_iso_standard_report
+    return generate_iso_standard_report(json_file_path, txt_file_path, output_pdf_path)

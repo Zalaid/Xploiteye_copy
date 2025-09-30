@@ -375,7 +375,7 @@ async def http_service_check(target: str) -> dict:
     return result
 
 # --- 3. CVE LOOKUP FUNCTIONALITY ---
-VPN_CONTROLLER_SCRIPT = "/home/kali/Desktop/xploiteye/Xploiteye-backend/app/scanning/protonvpn_cli/setup_vpn.py"
+VPN_CONTROLLER_SCRIPT = os.path.join(os.path.dirname(__file__), "protonvpn_cli", "setup_vpn.py")
 RATE_LIMIT = 8
 MAX_WORKERS = 10
 VPN_CYCLE_PLAN = ["J", "J", "U", "U", "N", "N"]

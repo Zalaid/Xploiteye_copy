@@ -20,12 +20,16 @@ qrcode==7.4.2
 Pillow>=10.2.0
 
 # Network Scanning Dependencies
-openai
+openai>=1.0.0
 pandas
-reportlab
+reportlab>=3.6.0
 matplotlib
 seaborn
 langchain-core
 langchain-openai
 langgraph
 python-nmap>=0.7.0
+
+# ISO Report Generation (New)
+reportlab>=3.6.0  # PDF generation with advanced graphics
+Pillow>=10.2.0    # Image processing for charts (already included above)
