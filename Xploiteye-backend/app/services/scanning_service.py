@@ -403,13 +403,20 @@ class ScanningService:
 
             # Import the new ISO report generator
             from app.scanning.report_generator.gpt_prompts import generate_iso_report
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
 
-            # Generate professional ISO report with charts
-            result = generate_iso_report(
-                json_file_path=json_file_path,
-                txt_file_path=txt_file_path,
-                output_pdf_path=output_path
-            )
+            # Run the synchronous PDF generation in a thread pool to avoid blocking the event loop
+            # This ensures the scan status can be returned to frontend immediately while PDF generates in background
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                result = await loop.run_in_executor(
+                    executor,
+                    generate_iso_report,
+                    json_file_path,
+                    txt_file_path,
+                    output_path
+                )
 
             if result["status"] == "success":
                 logging.info(f"✅ ISO report generated successfully: {output_path}")
