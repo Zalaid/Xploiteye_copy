@@ -21,6 +21,8 @@ import {
   Globe,
   Server,
   Terminal,
+  AlertTriangle,
+  Info,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -3046,9 +3048,16 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         <TabsContent value="exploits" className="space-y-6">
           <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-green-500/20">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bug className="w-5 h-5 text-green-400" />
-                <span>CVE Exploitability Matrix - Discovered Vulnerabilities</span>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Bug className="w-5 h-5 text-green-400" />
+                  <span>CVE Exploitability Matrix - Discovered Vulnerabilities</span>
+                </div>
+                {foundCVEs.length > 0 && (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                    {foundCVEs.length} Total CVEs
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -3057,132 +3066,97 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                   <div className="flex items-center justify-center p-8">
                     <div className="text-gray-400">Loading CVEs...</div>
                   </div>
-                ) : foundCVEs.length === 0 ? (
-                  <div className="flex items-center justify-center p-8">
-                    <div className="text-gray-400">No CVEs found. Run a scan to discover vulnerabilities.</div>
-                  </div>
-                ) : (
-                  <>
-                    {foundCVEs.map((cve) => (
-                      <motion.div
-                        key={cve.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="border border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"
-                      >
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-gray-700/50 to-gray-800/50 border-b border-gray-600/30 p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <Badge className={`${getSeverityColor(cve.severity)} text-lg px-4 py-2 font-bold`}>
-                                {cve.cve_id}
-                              </Badge>
-                              <Badge className={`${getSeverityColor(cve.severity)} text-sm px-3 py-1 font-semibold uppercase`}>
-                                {cve.severity || 'CRITICAL'}
-                              </Badge>
-                              {cve.cvss_score && (
-                                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-sm px-3 py-1 font-semibold">
-                                  CVSS {cve.cvss_score}
-                                </Badge>
-                              )}
-                            </div>
-                            {cve.privilege_escalation && (
-                              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-sm px-3 py-1 font-medium">
-                                🔐 Privilege Escalation
+              ) : foundCVEs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12">
+                  <Bug className="w-16 h-16 text-gray-600 mb-4" />
+                  <div className="text-gray-400 text-lg font-medium">No CVEs found</div>
+                  <div className="text-gray-500 text-sm">Run a scan to discover vulnerabilities</div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {foundCVEs.map((cve) => (
+                    <motion.div
+                      key={cve.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border-2 border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"
+                    >
+                      {/* Header Section */}
+                      <div className="bg-gradient-to-r from-gray-700/50 to-gray-800/50 border-b border-gray-600/30 p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <Badge className="bg-gray-500/30 text-white border-gray-500/50 text-lg px-4 py-2 font-bold">
+                              {cve.cve_id}
+                            </Badge>
+                            <Badge className={`${getSeverityColor(cve.severity)} text-sm px-3 py-1 font-semibold uppercase`}>
+                              {cve.severity === 'critical' ? 'Critical' :
+                               cve.severity === 'high' ? 'High' :
+                               cve.severity === 'medium' ? 'Med' : 'Low'}
+                            </Badge>
+                            {cve.cvss_score && (
+                              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-sm px-3 py-1 font-semibold">
+                                CVSS {cve.cvss_score}
                               </Badge>
                             )}
                           </div>
-                        </div>
-
-                        {/* CVE Details Section - Compact */}
-                        <div className="p-4 space-y-4">
-                          {/* Port and Service Info Only - Beautiful Design */}
-                          <div className="grid grid-cols-2 gap-4">
-                            {cve.port && (
-                              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/40 rounded-xl p-4 text-center shadow-lg backdrop-blur-sm hover:shadow-blue-500/20 transition-all duration-300">
-                                <div className="text-blue-300 font-bold text-sm uppercase tracking-wider mb-2 flex items-center justify-center">
-                                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
-                                  Port
-                                </div>
-                                <div className="text-white font-bold text-2xl drop-shadow-lg">{cve.port}</div>
-                              </div>
-                            )}
-                            {cve.service && (
-                              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-2 border-green-500/40 rounded-xl p-4 text-center shadow-lg backdrop-blur-sm hover:shadow-green-500/20 transition-all duration-300">
-                                <div className="text-green-300 font-bold text-sm uppercase tracking-wider mb-2 flex items-center justify-center">
-                                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                                  Service
-                                </div>
-                                <div className="text-white font-bold text-2xl drop-shadow-lg">{cve.service}</div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Status Information */}
-                          <div className="flex items-center justify-center space-x-3">
-                            {cve.exploitable && (
-                              <div className="flex items-center space-x-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                <span className="text-red-400 font-semibold text-sm">🎯 Exploitable</span>
-                              </div>
-                            )}
-                            {cve.remediated && (
-                              <div className="flex items-center space-x-2 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-green-400 font-semibold text-sm">✅ Remediated</span>
-                              </div>
-                            )}
-                            {!cve.remediated && (
-                              <div className="flex items-center space-x-2 bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 py-1">
-                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                <span className="text-orange-400 font-semibold text-sm">⚠️ Active Threat</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Footer - 50/50 Action Buttons */}
-                        <div className="border-t border-gray-600/30 grid grid-cols-2">
-                          <Link href="/dashboard/blue-agent" className="block">
-                            <button
-                              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 border-r border-gray-600/30 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-blue-500/25 text-base font-semibold rounded-none rounded-bl-xl flex items-center justify-center"
-                            >
-                              <Shield className="w-4 h-4 mr-2" />
-                              REMEDIATE
-                            </button>
-                          </Link>
-                          {cve.exploitable ? (
-                            <Link href="/dashboard/red-agent" className="block">
-                              <button
-                                className="w-full h-12 text-white border-0 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-red-500/25 text-base font-semibold rounded-none rounded-br-xl flex items-center justify-center"
-                                style={{
-                                  background: 'linear-gradient(to right, #dc2626, #b91c1c)',
-                                  backgroundImage: 'linear-gradient(to right, #dc2626, #b91c1c)'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = 'linear-gradient(to right, #b91c1c, #991b1b)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'linear-gradient(to right, #dc2626, #b91c1c)'
-                                }}
-                              >
-                                <Target className="w-4 h-4 mr-2" />
-                                EXPLOIT
-                              </button>
-                            </Link>
-                          ) : (
-                            <Link href="/dashboard/red-agent">
-                              <button className="bg-red-700/50 hover:bg-red-600/50 flex items-center justify-center text-red-400 hover:text-red-300 text-base font-semibold rounded-br-xl h-12 w-full transition-all duration-300 cursor-pointer">
-                                <Shield className="w-4 h-4 mr-2" />
-                                Not Exploitable
-                              </button>
-                            </Link>
+                          {cve.privilege_escalation && (
+                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-sm px-3 py-1 font-medium">
+                              🔐 Privilege Escalation
+                            </Badge>
                           )}
                         </div>
-                      </motion.div>
-                    ))}
-                  </>
-                )}
+                      </div>
+                      {/* Content */}
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/40 rounded-lg p-3 text-center">
+                            <div className="text-blue-300 text-xs font-medium mb-1">PORT</div>
+                            <div className="text-white font-bold text-lg">{cve.port || 'Unknown'}</div>
+                          </div>
+                          <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/40 rounded-lg p-3 text-center">
+                            <div className="text-green-300 text-xs font-medium mb-1">SERVICE</div>
+                            <div className="text-white font-bold text-lg">{cve.service || 'Unknown'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center space-x-2">
+                          {cve.exploitable && (
+                            <div className="flex items-center space-x-1 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                              <span className="text-red-400 text-xs font-medium">Exploitable</span>
+                            </div>
+                          )}
+                          {cve.remediated ? (
+                            <div className="flex items-center space-x-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-green-400 text-xs font-medium">Remediated</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-1 bg-orange-500/10 border border-orange-500/30 rounded px-2 py-1">
+                              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                              <span className="text-orange-400 text-xs font-medium">Active Threat</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div className="border-t border-gray-600/30 grid grid-cols-2">
+                        <Link href="/dashboard/blue-agent" className="block">
+                          <button className="w-full h-10 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-r border-gray-600/30 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-bl-xl flex items-center justify-center">
+                            <Shield className="w-3 h-3 mr-2" />
+                            REMEDIATE
+                          </button>
+                        </Link>
+                        <Link href="/dashboard/red-agent" className="block">
+                          <button className="w-full h-10 bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-br-xl flex items-center justify-center">
+                            <Target className="w-3 h-3 mr-2" />
+                            EXPLOIT
+                          </button>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
               </div>
             </CardContent>
           </Card>
@@ -3217,106 +3191,94 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 </div>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Scan Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Vulnerabilities</TableHead>
-                      <TableHead>Exploit Paths</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredScans.map((scan) => (
-                      <motion.tr
-                        key={scan.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        whileHover={{ backgroundColor: "rgba(20, 184, 166, 0.05)" }}
-                        className="cursor-pointer"
-                      >
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-2">
-                            <Network className="w-4 h-4 text-teal-400" />
-                            <span>{scan.target}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {getScanTypeIcon(scan.scanType)}
-                            <span className="text-sm">{scan.type}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(scan.status)}
-                            <Badge variant="outline" className={getStatusBadge(scan.status)}>
-                              {scan.status}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Progress value={scan.progress} className="w-16 h-2" />
-                            <span className="text-xs text-muted-foreground">{scan.progress}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {scan.status === "completed" && (
-                            <div className="flex space-x-1">
-                              {scan.vulnerabilities.critical > 0 && (
-                                <Badge className="bg-red-500/20 text-red-400 text-xs">
-                                  {scan.vulnerabilities.critical}C
-                                </Badge>
-                              )}
-                              {scan.vulnerabilities.high > 0 && (
-                                <Badge className="bg-orange-500/20 text-orange-400 text-xs">
-                                  {scan.vulnerabilities.high}H
-                                </Badge>
-                              )}
-                              {scan.vulnerabilities.medium > 0 && (
-                                <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
-                                  {scan.vulnerabilities.medium}M
-                                </Badge>
-                              )}
-                              {scan.vulnerabilities.low > 0 && (
-                                <Badge className="bg-green-500/20 text-green-400 text-xs">
-                                  {scan.vulnerabilities.low}L
-                                </Badge>
-                              )}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Target</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Progress</TableHead>
+                        <TableHead>Vulnerabilities</TableHead>
+                        <TableHead>Exploits</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {scanHistory.map((scan) => (
+                        <TableRow key={scan.id}>
+                          <TableCell className="font-medium">{scan.target}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{scan.type}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Badge
+                                className={
+                                  scan.status === "completed" ? "bg-green-500/20 text-green-400" :
+                                  scan.status === "running" ? "bg-yellow-500/20 text-yellow-400" :
+                                  "bg-red-500/20 text-red-400"
+                                }
+                              >
+                                {scan.status}
+                              </Badge>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {scan.exploitPaths > 0 && (
-                            <div className="flex items-center space-x-1">
-                              <Bug className="w-4 h-4 text-red-400" />
-                              <span className="text-sm text-red-400">{scan.exploitPaths}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Progress value={scan.progress} className="w-16 h-2" />
+                              <span className="text-xs text-muted-foreground">{scan.progress}%</span>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                          </TableCell>
+                          <TableCell>
                             {scan.status === "completed" && (
+                              <div className="flex space-x-1">
+                                {scan.vulnerabilities.critical > 0 && (
+                                  <Badge className="bg-red-500/20 text-red-400 text-xs">
+                                    {scan.vulnerabilities.critical}C
+                                  </Badge>
+                                )}
+                                {scan.vulnerabilities.high > 0 && (
+                                  <Badge className="bg-orange-500/20 text-orange-400 text-xs">
+                                    {scan.vulnerabilities.high}H
+                                  </Badge>
+                                )}
+                                {scan.vulnerabilities.medium > 0 && (
+                                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                                    {scan.vulnerabilities.medium}M
+                                  </Badge>
+                                )}
+                                {scan.vulnerabilities.low > 0 && (
+                                  <Badge className="bg-blue-500/20 text-blue-400 text-xs">
+                                    {scan.vulnerabilities.low}L
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {scan.exploitPaths > 0 && (
+                              <div className="flex items-center space-x-1">
+                                <Bug className="w-4 h-4 text-red-400" />
+                                <span className="text-sm text-red-400">{scan.exploitPaths}</span>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button variant="ghost" size="sm">
+                                <Eye className="w-4 h-4" />
+                              </Button>
                               <Button variant="ghost" size="sm">
                                 <Download className="w-4 h-4" />
                               </Button>
-                            )}
-                            <Button variant="ghost" size="sm">
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </motion.tr>
-                    ))}
-                  </TableBody>
-                </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -3333,7 +3295,6 @@ export default function ScanningPage() {
       <Head>
         <title>Scanning - XploitEye Dashboard</title>
         <meta name="description" content="Network and vulnerability scanning tools" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <DashboardLayout>
         <ScanningModule />
