@@ -1653,6 +1653,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 severity: vuln.severity || 'unknown',
                 cvss_score: vuln.cvss_score || 0,
                 references: vuln.references || [],
+                port: vuln.port || 'Unknown',
+                service: vuln.service || 'Unknown',
                 affected_service: vuln.service || vuln.port || 'Unknown',
                 remediation: vuln.remediation || 'No remediation available'
               }))
