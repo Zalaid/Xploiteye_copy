@@ -855,6 +855,118 @@ export default function Home() {
           }
         }
 
+        /* Processing Animation Box - Mobile Only */
+        .mobile-processing-box {
+          display: none;
+        }
+
+        @media (max-width: 500px) {
+          .mobile-processing-box {
+            display: flex;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            background: linear-gradient(135deg, rgba(0, 26, 10, 0.95) 0%, rgba(0, 0, 0, 0.95) 100%);
+            border: 2px solid #00f078;
+            border-radius: 16px;
+            padding: 22px 10px;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 32px rgba(0, 240, 120, 0.3);
+            backdrop-filter: blur(10px);
+            width: 60px;
+            height: 103px;
+          }
+
+          .processing-title {
+            display: none;
+          }
+
+          .processing-bar-container {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+          }
+
+          .processing-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 40%;
+            background: linear-gradient(90deg, transparent, #00f078, transparent);
+            border-radius: 2px;
+            animation: processing-slide 1.5s ease-in-out infinite;
+          }
+
+          @keyframes processing-slide {
+            0% {
+              left: -40%;
+            }
+            100% {
+              left: 100%;
+            }
+          }
+
+          .processing-dots {
+            display: flex;
+            gap: 5px;
+          }
+
+          .processing-dot {
+            width: 5px;
+            height: 5px;
+            background: #00f078;
+            border-radius: 50%;
+            animation: processing-dot-pulse 1.4s ease-in-out infinite;
+          }
+
+          .processing-dot:nth-child(1) {
+            animation-delay: 0s;
+          }
+
+          .processing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+          }
+
+          .processing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+          }
+
+          @keyframes processing-dot-pulse {
+            0%, 100% {
+              opacity: 0.3;
+              transform: scale(0.8);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(1.2);
+            }
+          }
+
+          .processing-text {
+            display: none;
+          }
+        }
+
+        @media (min-width: 401px) and (max-width: 500px) {
+          .mobile-processing-box {
+            width: 55px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .mobile-processing-box {
+            width: 50px;
+          }
+        }
+
         /* Eye breathing wrapper */
         .eye-breathing-wrapper {
           position: absolute;
@@ -1571,6 +1683,18 @@ export default function Home() {
                 className="responsive-lottie-container"
               />
               
+              {/* Mobile Processing Animation */}
+              <div className="mobile-processing-box">
+                <div className="processing-bar-container">
+                  <div className="processing-bar"></div>
+                </div>
+                <div className="processing-dots">
+                  <div className="processing-dot"></div>
+                  <div className="processing-dot"></div>
+                  <div className="processing-dot"></div>
+                </div>
+              </div>
+
               {/* Eye icon overlay synchronized with Lottie frames */}
               <div className="eye-breathing-wrapper">
                 <motion.img
