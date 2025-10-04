@@ -1151,7 +1151,14 @@ export default function Home() {
           }
         }
 
-        @media (min-width: 401px) and (max-width: 500px) {
+        @media (min-width: 450px) and (max-width: 500px) {
+          .mobile-processing-box {
+            width: 55px;
+            height: 110px;
+          }
+        }
+
+        @media (min-width: 401px) and (max-width: 449px) {
           .mobile-processing-box {
             width: 55px;
           }
