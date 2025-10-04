@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -21,12 +21,26 @@ export default function Header() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  const [show, setShow] = useState<boolean>(true);
+  const lastScrollY = useRef<number>(0);
   const { isAuthenticated, user, logout } = useAuth();
 
-  // Handle scroll effect for header shadow
+  // Handle scroll effect for header shadow and visibility
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
+      const currentScrollY = window.scrollY;
+
+      setIsScrolled(currentScrollY > 0);
+
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling down - hide header
+        setShow(false);
+      } else if (currentScrollY < lastScrollY.current) {
+        // Scrolling up - show header
+        setShow(true);
+      }
+
+      lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -120,10 +134,15 @@ export default function Header() {
           z-index: 9999;
           background: rgba(0, 0, 0, 0.95);
           backdrop-filter: blur(15px);
-          transition: all 0.3s ease;
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
           border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          height: 90px;
+          height: 70px;
           box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+          transform: translateY(0);
+        }
+
+        .header--hidden {
+          transform: translateY(-100%);
         }
         
         .header--scrolled {
@@ -140,7 +159,7 @@ export default function Header() {
           margin-right: auto;
           display: flex;
           padding: 0.25rem 1.5rem;
-          min-height: 90px;
+          min-height: 70px;
           gap: 20px;
         }
         
@@ -449,11 +468,10 @@ export default function Header() {
         
         @media (max-width: 768px) {
           .header {
-            position: sticky;
             backdrop-filter: blur(10px);
             z-index: 1000;
           }
-          
+
           .header__container {
             padding: 0.5rem 1rem;
             min-height: 50px;
@@ -543,48 +561,73 @@ export default function Header() {
             padding: 0.5rem 0.75rem;
             min-height: 54px;
           }
-          
+
           .nav-section {
             padding: 4rem 1rem 1.75rem 1rem;
             gap: 0.375rem;
           }
-          
+
           .nav-section a {
             font-size: 1rem;
             padding: 1rem 1.5rem;
             margin: 0.25rem 0;
             border-radius: 12px;
           }
-          
+
           .auth-section {
             gap: 0.25rem;
           }
-          
+
           .login-btn {
             padding: 0.55rem 0.85rem;
             font-size: 0.7rem;
             gap: 0.25rem;
           }
-          
+
           .signup-btn {
             padding: 0.55rem 0.95rem;
             font-size: 0.7rem;
           }
-          
+
           .header__menu-toggle {
             width: 38px;
             height: 38px;
             margin-left: 0.375rem;
           }
-          
+
           .header__menu-toggle-line {
             width: 16px;
             height: 1.5px;
           }
         }
+
+        @media (max-width: 410px) {
+          .signup-btn {
+            display: none;
+          }
+        }
+
+        /* Hide signup in navigation by default (shows only on mobile) */
+        .mobile-signup-link {
+          display: none;
+        }
+
+        /* Show signup in hamburger menu only on screens ≤ 410px */
+        @media (max-width: 410px) {
+          .mobile-signup-link {
+            display: flex;
+          }
+        }
+
+        /* Hide signup in navigation on screens > 768px */
+        @media (min-width: 769px) {
+          .mobile-signup-link {
+            display: none !important;
+          }
+        }
       `}} />
 
-      <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>
+      <header className={`header ${isScrolled ? 'header--scrolled' : ''} ${!show ? 'header--hidden' : ''}`}>
         <div className="header__container">
           {/* Section 1 - Logo Div (Left) */}
           <div className="logo-section">
@@ -619,6 +662,13 @@ export default function Header() {
                 </Link>
               )
             ))}
+            <Link
+              href="/signup"
+              className="nav-link mobile-signup-link"
+              onClick={handleNavClick}
+            >
+              Sign Up
+            </Link>
           </div>
 
           {/* Section 3 - Auth Buttons (Right) */}

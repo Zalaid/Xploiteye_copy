@@ -1,621 +1,478 @@
-import React, { FC } from 'react';
+import React, { FC, useState } from 'react';
 
-// Define the type for a single pricing plan
 interface PricingPlan {
   id: string;
   name: string;
-  subtitle: string;
+  description: string;
+  monthlyPrice: string;
+  annualPrice: string;
   features: string[];
-  buttonText: string;
-  isPopular: boolean;
+  highlighted?: boolean;
+  cta: string;
 }
 
 const Pricing: FC = () => {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+
   const pricingPlans: PricingPlan[] = [
     {
-      id: 'core',
-      name: 'CORE',
-      subtitle: 'Reduce noise and prioritize OSS vulnerabilities.',
+      id: 'starter',
+      name: 'Starter',
+      description: 'Perfect for individual developers and small projects',
+      monthlyPrice: '49',
+      annualPrice: '490',
       features: [
-        'SCA with reachability',
-        'AI model discovery',
-        'OSS package/model curation',
-        'Top 10 OSS risk detection'
+        'Up to 5 active scans',
+        'Basic vulnerability detection',
+        'Email support',
+        'Community access',
+        'Basic reporting',
+        '30-day scan history'
       ],
-      buttonText: 'Get Started',
-      isPopular: false
+      cta: 'Start Free Trial'
     },
     {
-      id: 'pro',
-      name: 'PRO',
-      subtitle: 'Fix OSS vulnerabilities faster and secure the SDLC.',
+      id: 'professional',
+      name: 'Professional',
+      description: 'For growing teams and serious security needs',
+      monthlyPrice: '149',
+      annualPrice: '1490',
+      highlighted: true,
       features: [
-        'Everything in Core, plus...',
-        'Upgrade impact analysis',
-        'Container scanning',
-        'Binary scanning'
+        'Unlimited active scans',
+        'Advanced threat detection',
+        'Priority support 24/7',
+        'API access',
+        'Custom integrations',
+        'Advanced analytics',
+        'Compliance reports',
+        '1-year scan history',
+        'Team collaboration'
       ],
-      buttonText: 'Get Started',
-      isPopular: true
+      cta: 'Start Free Trial'
     },
     {
-      id: 'patches',
-      name: 'PATCHES',
-      subtitle: 'Patch OSS vulnerabilities without upgrading dependencies.',
+      id: 'enterprise',
+      name: 'Enterprise',
+      description: 'Custom solutions for large organizations',
+      monthlyPrice: 'Custom',
+      annualPrice: 'Custom',
       features: [
-        'Use with Core, Pro, or Standalone',
-        'Immediate resolution of CVEs',
-        'Easy integration into workflows',
-        'Verifiable SBOM'
+        'Everything in Professional',
+        'Dedicated account manager',
+        'Custom deployment options',
+        'SLA guarantees',
+        'Advanced security features',
+        'Unlimited scan history',
+        'White-label options',
+        'Custom training'
       ],
-      buttonText: 'Get Started',
-      isPopular: false
+      cta: 'Contact Sales'
     }
   ];
 
   const pageStyles = `
-    /* Global overflow fixes */
+    /* Reset and Base */
     html, body {
       overflow-x: hidden !important;
       max-width: 100vw !important;
       width: 100% !important;
-      background-color: black !important;
+      background-color: #000000 !important;
       margin: 0 !important;
       padding: 0 !important;
     }
 
     * {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
     }
 
-    body, #__next, #root {
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    .pricing-page {
-      overflow-x: hidden;
-      width: 100%;
-      max-width: 100vw;
-    }
-
-    /* Pricing Page Styles */
     .pricing-page {
       min-height: 100vh;
       background: #000000;
+      color: #ffffff;
+      padding: 120px 20px 80px;
       position: relative;
-      overflow: hidden;
-      padding-top: 110px;
+      overflow-x: hidden;
     }
-    
+
+    /* Background Effects */
+    .pricing-bg-gradient {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at top, rgba(0, 240, 120, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
     /* Container */
     .pricing-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2rem;
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 2rem;
-      min-height: 100vh;
-      overflow-x: hidden;
-      width: 100%;
-    }
-    
-    .pricing-cards-wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 1.5rem;
-      width: 100%;
       position: relative;
-      z-index: 2;
-      margin-top: -1rem;
-      overflow-x: hidden;
+      z-index: 1;
     }
-    
-    /* Header */
+
+    /* Header Section */
     .pricing-header {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 60px;
     }
-    
+
     .pricing-title {
-      font-size: 4rem;
+      font-size: 3.5rem;
       font-weight: 700;
       color: #ffffff;
-      margin: 0;
-      text-shadow: 0 0 30px rgba(0, 240, 120, 0.5);
-      animation: titleGlow 3s ease-in-out infinite alternate;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #00f078 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    
-    @keyframes titleGlow {
-      0% {
-        text-shadow: 0 0 30px rgba(0, 240, 120, 0.5);
-      }
-      100% {
-        text-shadow: 0 0 50px rgba(0, 240, 120, 0.8), 0 0 80px rgba(0, 240, 120, 0.3);
-      }
+
+    .pricing-subtitle {
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.7);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
     }
-    
+
+    /* Billing Toggle */
+    .billing-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+
+    .toggle-label {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.6);
+      transition: color 0.3s ease;
+    }
+
+    .toggle-label.active {
+      color: #00f078;
+      font-weight: 600;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 56px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .toggle-switch:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      background: #00f078;
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 240, 120, 0.4);
+    }
+
+    .toggle-switch.annual .toggle-slider {
+      transform: translateX(28px);
+    }
+
+    .savings-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #00f078 0%, #00c060 100%);
+      color: #000000;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
     /* Pricing Grid */
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1.5rem;
-      align-items: stretch;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 32px;
+      margin-bottom: 80px;
     }
-    
-    /* Pricing Cards */
+
+    /* Pricing Card */
     .pricing-card {
-      background: linear-gradient(145deg, rgba(0, 26, 10, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
-      border: 1px solid rgba(0, 240, 120, 0.3);
-      border-radius: 20px;
-      padding: 2rem;
+      background: linear-gradient(135deg, rgba(0, 26, 10, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 40px;
       position: relative;
-      overflow: hidden;
-      backdrop-filter: blur(10px);
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      animation: cardFloat 6s ease-in-out infinite;
-      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
-    
-    /* Specific size for PATCHES card */
-    .pricing-card[data-plan="patches"] {
-      width: 410px !important;
-      height: 502px !important;
-    }
-    
-    /* Style for PATCHES card header div */
-    .pricing-card[data-plan="patches"] .card-header {
-      background: #ffffff1a !important;
-      padding-bottom: 1.65rem !important;
-      border-radius: .5rem !important;
-      padding: 1.5rem !important;
-    }
-    
-    /* Style for CORE card header div */
-    .pricing-card[data-plan="core"] .card-header {
-      background: #ffffff1a !important;
-      padding-bottom: 1.65rem !important;
-      border-radius: .5rem !important;
-      padding: 1.5rem !important;
-    }
-    
-    /* Override hover effects for PATCHES card header */
-    .pricing-card[data-plan="patches"] .card-header:hover {
-      background: #ffffff1a !important;
-      border-color: rgba(0, 240, 120, 0.3);
-      box-shadow: none !important;
-      transform: none !important;
-    }
-    
-    /* Override hover effects for CORE card header */
-    .pricing-card[data-plan="core"] .card-header:hover {
-      background: #ffffff1a !important;
-      border-color: rgba(0, 240, 120, 0.3);
-      box-shadow: none !important;
-      transform: none !important;
-    }
-    
-    /* Specific size for PRO card */
-    .pricing-card[data-plan="pro"] {
-      width: 410px !important;
-      height: 534px !important;
-    }
-    
-    /* Specific size for CORE card */
-    .pricing-card[data-plan="core"] {
-      width: 410px !important;
-      height: 502px !important;
-    }
-    
-    .pricing-card:nth-child(1) {
-      animation-delay: 0s;
-    }
-    
-    .pricing-card:nth-child(2) {
-      animation-delay: 2s;
-    }
-    
-    .pricing-card:nth-child(3) {
-      animation-delay: 4s;
-    }
-    
-    @keyframes cardFloat {
-      0%, 100% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-10px);
-      }
-    }
-    
+
     .pricing-card:hover {
-      transform: translateY(-15px) scale(1.02);
-      border-color: rgba(0, 240, 120, 0.6);
-      box-shadow: 0 20px 60px rgba(0, 240, 120, 0.2);
+      transform: translateY(-8px);
+      border-color: rgba(0, 240, 120, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 240, 120, 0.15);
     }
-    
-    /* Popular Card */
-    .pricing-card.popular {
-      border: 2px solid rgba(0, 240, 120, 0.6);
-      box-shadow: 0 0 40px rgba(0, 240, 120, 0.3);
+
+    .pricing-card.highlighted {
+      background: linear-gradient(135deg, rgba(0, 240, 120, 0.1) 0%, rgba(0, 0, 0, 0.8) 100%);
+      border: 2px solid #00f078;
       transform: scale(1.05);
     }
-    
-    .pricing-card.popular:hover {
-      transform: translateY(-15px) scale(1.07);
+
+    .pricing-card.highlighted:hover {
+      transform: translateY(-8px) scale(1.05);
     }
-    
-    /* Card Glow Effect */
-    .card-glow {
+
+    .popular-badge {
       position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(0, 240, 120, 0.1) 0%, transparent 70%);
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
+      top: -12px;
+      right: 32px;
+      background: linear-gradient(135deg, #00f078 0%, #00c060 100%);
+      color: #000000;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    
-    .pricing-card:hover .card-glow {
-      opacity: 1;
-    }
-    
+
     /* Card Header */
-    .card-header {
-      margin-bottom: 2rem;
-      text-align: center;
-      background: linear-gradient(135deg, #001e0f, #000503);
-      border: 1px solid rgba(0, 240, 120, 0.2);
-      border-radius: 12px;
-      padding: 1.5rem;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 15px rgba(0, 240, 120, 0.1);
-      transition: all 0.3s ease;
-    }
-    
-    .card-header:hover {
-      background: linear-gradient(135deg, rgba(0, 240, 120, 0.15) 0%, rgba(0, 240, 120, 0.08) 100%);
-      border-color: rgba(0, 240, 120, 0.3);
-      box-shadow: 0 6px 20px rgba(0, 240, 120, 0.15);
-      transform: translateY(-2px);
-    }
-    
-    .plan-name {
-      font-size: 1.4rem;
+    .card-plan-name {
+      font-size: 1.8rem;
       font-weight: 700;
       color: #ffffff;
-      margin-bottom: 0.3rem;
+      margin-bottom: 8px;
+    }
+
+    .card-plan-description {
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* Pricing */
+    .card-pricing {
+      margin-bottom: 32px;
+    }
+
+    .price-amount {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
     }
-    
-    .brand-name {
-      color: rgba(0, 240, 120, 0.8);
-      font-size: 1.2rem;
+
+    .currency {
+      font-size: 1.5rem;
+      color: #00f078;
+      font-weight: 600;
     }
-    
-    .plan-subtitle {
-      color: rgba(255, 255, 255, 0.8);
+
+    .price {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .price-period {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .price-note {
       font-size: 0.85rem;
-      line-height: 1.3;
-      margin: 0;
+      color: rgba(255, 255, 255, 0.4);
     }
-    
-    /* Card Body */
-    .card-body {
-      margin-bottom: 2.5rem;
-    }
-    
+
+    /* Features List */
     .features-list {
       list-style: none;
       padding: 0;
-      margin: 0;
-      font-weight: 400;
+      margin: 0 0 32px 0;
+      flex-grow: 1;
     }
-    
+
     .feature-item {
       display: flex;
       align-items: flex-start;
-      gap: 0.75rem;
-      margin-bottom: 0.6rem;
-      padding: 0.5rem 0;
-      transition: all 0.3s ease;
-      width: 345px;
-      height: 30px;
+      gap: 12px;
+      margin-bottom: 16px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.95rem;
+      line-height: 1.5;
     }
-    
-    .feature-item:hover {
-      background: rgba(0, 240, 120, 0.05);
-      border-radius: 8px;
-      padding-left: 0.5rem;
-    }
-    
+
     .feature-icon {
       color: #00f078;
-      font-weight: bold;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       flex-shrink: 0;
-      width: 20px;
-      text-align: center;
+      margin-top: 2px;
     }
-    
-    .feature-text {
-      color: var(--white);
-      font-family: Switzer, sans-serif;
-      font-size: 1.1rem;
-      font-weight: 400;
-      line-height: 1.3;
-    }
-    
-    /* Card Footer */
-    .card-footer {
-      text-align: center;
-    }
-    
-    .pricing-btn {
-      background: linear-gradient(135deg, #00f078 0%, #00c060 100%);
-      color: #000000;
-      border: none;
-      padding: 0.8rem 1.5rem;
-      border-radius: 10px;
-      font-size: 0.95rem;
+
+    /* CTA Button */
+    .pricing-cta {
+      width: 100%;
+      padding: 16px 24px;
+      font-size: 1rem;
       font-weight: 600;
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
-      width: 100%;
-      max-width: 200px;
     }
-    
-    .pricing-btn--primary {
+
+    .pricing-cta.primary {
       background: linear-gradient(135deg, #00f078 0%, #00c060 100%);
       color: #000000;
     }
-    
-    .pricing-btn--secondary {
-      background: linear-gradient(135deg, #00ff88, #00f078);
-      color: #000000;
-      box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
-    }
-    
-    .pricing-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      transition: left 0.5s ease;
-    }
-    
-    .pricing-btn:hover::before {
-      left: 100%;
-    }
-    
-    .pricing-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0, 240, 120, 0.4);
+
+    .pricing-cta.primary:hover {
       background: linear-gradient(135deg, #00ff88 0%, #00d070 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 240, 120, 0.3);
     }
-    
-    .pricing-btn:active {
-      transform: translateY(0);
+
+    .pricing-cta.secondary {
+      background: transparent;
+      color: #00f078;
+      border: 2px solid #00f078;
     }
-    
-    /* Responsive Design */
-    
-    /* Large Desktop */
-    .pricing-grid {
-      grid-template-columns: repeat(3, 1fr);
-      max-width: 1200px;
-      margin: 0 auto;
+
+    .pricing-cta.secondary:hover {
+      background: rgba(0, 240, 120, 0.1);
+      border-color: #00ff88;
+      transform: translateY(-2px);
     }
-    
-    /* Tablet */
-    .pricing-container {
-      padding: 1.5rem;
+
+    /* FAQ Section */
+    .pricing-faq {
+      margin-top: 80px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    
-    .pricing-title {
-      font-size: 3.5rem;
+
+    .faq-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 48px;
+      background: linear-gradient(135deg, #ffffff 0%, #00f078 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    
-    .pricing-grid {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.5rem;
+
+    .faq-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: all 0.3s ease;
     }
-    
-    .pricing-card {
-      padding: 2rem;
+
+    .faq-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(0, 240, 120, 0.3);
     }
-    
-    /* Maintain specific card dimensions */
-    .pricing-card[data-plan="patches"] {
-      width: 410px !important;
-      height: 502px !important;
+
+    .faq-question {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 12px;
     }
-    
-    .pricing-card[data-plan="pro"] {
-      width: 410px !important;
-      height: 534px !important;
+
+    .faq-answer {
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.6;
     }
-    
-    .pricing-card[data-plan="core"] {
-      width: 410px !important;
-      height: 502px !important;
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .pricing-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .pricing-card.highlighted {
+        transform: scale(1);
+      }
+
+      .pricing-card.highlighted:hover {
+        transform: translateY(-8px) scale(1);
+      }
     }
-    
-    .bg-glow-1 {
-      width: 600px;
-      height: 400px;
-    }
-    
-    .bg-glow-2, .bg-glow-3 {
-      width: 400px;
-      height: 300px;
-    }
-    
-    /* Mobile Landscape */
+
     @media (max-width: 768px) {
       .pricing-page {
-        padding-top: 160px;
+        padding: 100px 16px 60px;
       }
-      
-      .pricing-container {
-        padding: 1rem;
-        max-width: 100%;
-      }
-      
-      .pricing-header {
-        margin-bottom: 2rem;
-      }
-      
+
       .pricing-title {
         font-size: 2.5rem;
       }
-      
-      .pricing-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-        max-width: 100%;
-      }
-      
-      .pricing-cards-wrapper {
-        flex-direction: column;
-        gap: 1.5rem;
-        margin-top: 0;
-      }
-      
-      .pricing-card {
-        padding: 1.5rem;
-        margin: 0 auto;
-        max-width: 90vw;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 400px;
-      }
-      
-      /* Remove fixed dimensions for mobile */
-      .pricing-card[data-plan="patches"],
-      .pricing-card[data-plan="pro"],
-      .pricing-card[data-plan="core"] {
-        width: 100% !important;
-        height: auto !important;
-        max-width: 350px;
-      }
-      
-      .pricing-card.popular {
-        transform: scale(1);
-      }
-      
-      .pricing-card.popular:hover {
-        transform: translateY(-5px) scale(1.01);
-      }
-      
-      .plan-name {
-        font-size: 1.6rem;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-      
-      .brand-name {
+
+      .pricing-subtitle {
         font-size: 1rem;
       }
-    
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .pricing-card {
+        padding: 32px 24px;
+      }
+
+      .price {
+        font-size: 2.8rem;
+      }
+
+      .faq-title {
+        font-size: 2rem;
+      }
     }
-    
-    /* Mobile Portrait */
+
     @media (max-width: 480px) {
-      .pricing-page {
-        padding-top: 150px;
-        background-position: center -50px;
-      }
-      
-      .pricing-container {
-        padding: 0.75rem;
-      }
-      
       .pricing-title {
         font-size: 2rem;
       }
-      
-      .pricing-card {
-        padding: 1.25rem;
-        max-width: 95vw;
+
+      .billing-toggle {
+        flex-direction: column;
+        gap: 12px;
       }
-      
-      /* Responsive card dimensions for small screens */
-      .pricing-card[data-plan="patches"],
-      .pricing-card[data-plan="pro"],
-      .pricing-card[data-plan="core"] {
-        width: 100% !important;
-        height: auto !important;
-        max-width: 320px;
+
+      .card-plan-name {
+        font-size: 1.5rem;
       }
-      
-      .plan-name {
-        font-size: 1.4rem;
-      }
-      
-      .feature-text {
-        font-size: 1rem;
-      }
-      
-      .pricing-btn {
-        padding: 0.875rem 1.5rem;
-        font-size: 0.9rem;
-      }
-      
-      .bg-glow-1 {
-        width: 300px;
-        height: 200px;
-      }
-      
-      .bg-glow-2, .bg-glow-3 {
-        width: 250px;
-        height: 150px;
-      }
-    }
-    
-    /* Ultra Small Mobile */
-    @media (max-width: 360px) {
-      .pricing-container {
-        padding: 0.5rem;
-      }
-      
-      .pricing-title {
-        font-size: 1.8rem;
-      }
-      
-      .pricing-card {
-        padding: 1rem;
-        max-width: 98vw;
-      }
-      
-      .pricing-card[data-plan="patches"],
-      .pricing-card[data-plan="pro"],
-      .pricing-card[data-plan="core"] {
-        max-width: 300px;
-      }
-      
-      .plan-name {
-        font-size: 1.2rem;
-      }
-      
-      .pricing-btn {
-        padding: 0.75rem 1.25rem;
-        font-size: 0.85rem;
+
+      .price {
+        font-size: 2.5rem;
       }
     }
   `;
@@ -624,49 +481,122 @@ const Pricing: FC = () => {
     <>
       <style>{pageStyles}</style>
       <div className="pricing-page">
+        <div className="pricing-bg-gradient"></div>
+
         <div className="pricing-container">
-          {/* Page Title */}
+          {/* Header */}
           <div className="pricing-header">
-            <h1 className="pricing-title">Plans</h1>
+            <h1 className="pricing-title">Choose Your Plan</h1>
+            <p className="pricing-subtitle">
+              Scale your security with flexible pricing designed for teams of all sizes
+            </p>
+          </div>
+
+          {/* Billing Toggle */}
+          <div className="billing-toggle">
+            <span className={`toggle-label ${billingCycle === 'monthly' ? 'active' : ''}`}>
+              Monthly
+            </span>
+            <div
+              className={`toggle-switch ${billingCycle === 'annual' ? 'annual' : ''}`}
+              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
+            >
+              <div className="toggle-slider"></div>
+            </div>
+            <span className={`toggle-label ${billingCycle === 'annual' ? 'active' : ''}`}>
+              Annual
+              <span className="savings-badge">Save 17%</span>
+            </span>
           </div>
 
           {/* Pricing Cards */}
-          <div className="pricing-cards-wrapper">
+          <div className="pricing-grid">
             {pricingPlans.map((plan) => (
               <div
                 key={plan.id}
-                className={`pricing-card ${plan.isPopular ? 'popular' : ''}`}
-                data-plan={plan.id}
+                className={`pricing-card ${plan.highlighted ? 'highlighted' : ''}`}
               >
-                {/* Card Glow Effect */}
-                <div className="card-glow"></div>
-                
-                {/* Card Content */}
-                <div className="card-header">
-                  <h2 className="plan-name">
-                    <span className="brand-name">XPLOITEYE</span> {plan.name}
-                  </h2>
-                  <p className="plan-subtitle">{plan.subtitle}</p>
+                {plan.highlighted && (
+                  <div className="popular-badge">Most Popular</div>
+                )}
+
+                <h3 className="card-plan-name">{plan.name}</h3>
+                <p className="card-plan-description">{plan.description}</p>
+
+                <div className="card-pricing">
+                  {plan.monthlyPrice === 'Custom' ? (
+                    <div className="price-amount">
+                      <span className="price">Custom</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="price-amount">
+                        <span className="currency">$</span>
+                        <span className="price">
+                          {billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice}
+                        </span>
+                        <span className="price-period">
+                          /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                        </span>
+                      </div>
+                      {billingCycle === 'annual' && (
+                        <p className="price-note">
+                          ${(parseInt(plan.annualPrice) / 12).toFixed(0)}/month billed annually
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
 
-                <div className="card-body">
-                  <ul className="features-list">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="feature-item">
-                        <span className="feature-icon">✓</span>
-                        <span className="feature-text">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ul className="features-list">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="feature-item">
+                      <span className="feature-icon">✓</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
 
-                <div className="card-footer">
-                  <button className="pricing-btn pricing-btn--primary">
-                    {plan.buttonText}
-                  </button>
-                </div>
+                <button
+                  className={`pricing-cta ${plan.highlighted ? 'primary' : 'secondary'}`}
+                >
+                  {plan.cta}
+                </button>
               </div>
             ))}
+          </div>
+
+          {/* FAQ Section */}
+          <div className="pricing-faq">
+            <h2 className="faq-title">Frequently Asked Questions</h2>
+
+            <div className="faq-item">
+              <h3 className="faq-question">Can I change plans later?</h3>
+              <p className="faq-answer">
+                Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately and we'll prorate the costs accordingly.
+              </p>
+            </div>
+
+            <div className="faq-item">
+              <h3 className="faq-question">Do you offer a free trial?</h3>
+              <p className="faq-answer">
+                Yes! All plans come with a 14-day free trial. No credit card required to start.
+              </p>
+            </div>
+
+            <div className="faq-item">
+              <h3 className="faq-question">What payment methods do you accept?</h3>
+              <p className="faq-answer">
+                We accept all major credit cards, PayPal, and bank transfers for Enterprise plans.
+              </p>
+            </div>
+
+            <div className="faq-item">
+              <h3 className="faq-question">Is there a setup fee?</h3>
+              <p className="faq-answer">
+                No, there are no setup fees or hidden charges. You only pay for your chosen plan.
+              </p>
+            </div>
           </div>
         </div>
       </div>

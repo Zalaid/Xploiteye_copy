@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import Lottie from 'lottie-react';
+import { useRouter } from 'next/router';
 
 export default function Home() {
+  const router = useRouter();
   const [animationData, setAnimationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -290,6 +292,7 @@ export default function Home() {
           overflow-x: hidden;
           width: 100%;
           max-width: 100vw;
+          padding-top: 70px;
         }
 
         /* Desktop Section - Responsive for all devices */
@@ -768,10 +771,19 @@ export default function Home() {
         }
 
         /* Responsive SVG widths based on screen size */
-        @media (max-width: 400px) {
+        @media (max-width: 300px) {
           .responsive-lottie-container {
             width: 250vw !important;
             max-width: 1000px !important;
+            height: 250px !important;
+          }
+        }
+
+        @media (min-width: 301px) and (max-width: 400px) {
+          .responsive-lottie-container {
+            width: 250vw !important;
+            max-width: 1000px !important;
+            height: 250px !important;
           }
         }
 
@@ -779,6 +791,7 @@ export default function Home() {
           .responsive-lottie-container {
             width: 220vw !important;
             max-width: 1100px !important;
+            height: 300px !important;
           }
         }
 
@@ -816,6 +829,30 @@ export default function Home() {
           height: 100% !important;
           max-width: none !important;
           max-height: none !important;
+        }
+
+        @media (max-width: 300px) {
+          .responsive-lottie-container svg {
+            transform: scale(1.3) !important;
+          }
+        }
+
+        @media (min-width: 301px) and (max-width: 400px) {
+          .responsive-lottie-container svg {
+            transform: scale(1.4) !important;
+          }
+        }
+
+        @media (min-width: 401px) and (max-width: 500px) {
+          .responsive-lottie-container svg {
+            transform: scale(1.4) !important;
+          }
+        }
+
+        @media (min-width: 501px) and (max-width: 600px) {
+          .responsive-lottie-container svg {
+            transform: scale(1.3) !important;
+          }
         }
 
         /* Eye breathing wrapper */
@@ -1480,14 +1517,19 @@ export default function Home() {
 
       <div className="home-page">
         {/* Lottie Animation Section */}
-        <div 
-          className="lottie-hero-section" 
+        <div
+          className="lottie-hero-section"
           style={{
             width: '100%',
-            height: windowWidth >= 1000 
-              ? 'calc(288px + (100vw - 1100px) * 0.26)' 
+            height: windowWidth >= 1000
+              ? 'calc(288px + (100vw - 1100px) * 0.26)'
+              : windowWidth <= 300
+              ? '250px'
+              : windowWidth <= 400
+              ? '250px'
+              : windowWidth <= 500
+              ? '300px'
               : 'calc(252px + (100vw - 770px) * 0.33)',
-            marginTop: '90px',
             position: 'relative',
             overflow: 'visible',
             backgroundColor: 'black',
@@ -1562,8 +1604,8 @@ export default function Home() {
               XploitEye reimagines cybersecurity with multi-agent collaboration detecting, exploiting, and neutralizing threats faster than they emerge.
             </p>
             <div className="hero-actions">
-              <button className="btn-primary-glow">Book a Demo</button>
-              <button className="btn-secondary-outline">Learn More</button>
+              <button className="btn-primary-glow" onClick={() => router.push('/signin')}>Book a Demo</button>
+              <button className="btn-secondary-outline" onClick={() => router.push('/platform')}>Learn More</button>
             </div>
           </div>
         </div>
@@ -1717,9 +1759,9 @@ export default function Home() {
             >
               Get Started
             </button>
-            <button 
+            <button
               className="btn-secondary-outline"
-              onClick={() => window.location.href = '/signup'}
+              onClick={() => router.push('/signin')}
             >
               Book a Demo
             </button>

@@ -365,7 +365,7 @@ export default function UseCasePage() {
               <Button
                 size="lg"
                 className="bg-[#00f078] hover:bg-[#00f078]/90 text-black font-semibold glow-effect px-8 py-4 text-lg"
-                onClick={() => handleNavigation('/dashboard')}
+                onClick={() => handleNavigation('/signin')}
               >
                 Start Security Assessment
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -373,8 +373,8 @@ export default function UseCasePage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-[#00f078] text-[#00f078] hover:bg-[#00f078] hover:text-black bg-transparent px-8 py-4 text-lg"
-                onClick={() => handleNavigation('/contact')}
+                className="border-[#00f078] text-[#00f078] hover:bg-[#00f078]/20 hover:border-[#00f078] bg-transparent px-8 py-4 text-lg transition-all"
+                onClick={() => handleNavigation('/contactus')}
               >
                 Schedule Demo
               </Button>
@@ -623,8 +623,8 @@ export default function UseCasePage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-[#00f078] text-[#00f078] hover:bg-[#00f078] hover:text-black bg-transparent px-8 py-4 text-lg"
-              onClick={() => handleNavigation('/contact')}
+              className="border-[#00f078] text-[#00f078] hover:bg-[#00f078]/20 hover:border-[#00f078] bg-transparent px-8 py-4 text-lg transition-all"
+              onClick={() => handleNavigation('/contactus')}
             >
               Contact Our Team
             </Button>

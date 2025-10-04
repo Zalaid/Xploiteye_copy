@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
+  trailingSlash: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
   typescript: {
     ignoreBuildErrors: false,
@@ -8,6 +10,7 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
   images: {
+    unoptimized: true,
     domains: ['localhost'],
   },
 }
