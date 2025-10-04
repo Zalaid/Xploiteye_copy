@@ -8,7 +8,6 @@ export default function Home() {
   const [animationData, setAnimationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Ref to access the Lottie animation instance for frame syncing
   const lottieRef = useRef<any>(null);
@@ -20,136 +19,6 @@ export default function Home() {
   const eyeTranslateY = useTransform(progress, [0, 0.25, 0.5, 0.75, 1], [7, -3, -8, -3, 5]);
   const eyeRotate = useTransform(progress, [0, 0.5, 1], [-8, 0, 6]);
   const eyeScale = useTransform(progress, [0, 0.5, 1], [0.85, 1.15, 0.95]);
-
-  const updateEyePosition = () => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-    
-    const width = window.innerWidth;
-    const root = document.documentElement;
-
-    if (width >= 1600) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 192px)');
-    } else if (width >= 1500) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 192px)');
-    } else if (width >= 1491 && width <= 1498) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 186px)');
-    } else if (width >= 1477 && width <= 1490) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 184px)');
-    } else if (width >= 1453 && width <= 1476) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 181px)');
-    } else if (width >= 1436 && width <= 1452) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 178px)');
-    } else if (width >= 1421 && width <= 1435) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 175px)');
-    } else if (width >= 1406 && width <= 1420) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 173px)');
-    } else if (width >= 1391 && width <= 1405) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 171px)');
-    } else if (width >= 1376 && width <= 1390) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 169px)');
-    } else if (width >= 1367 && width <= 1375) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 166px)');
-    } else if (width >= 1348 && width <= 1366) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 163px)');
-    } else if (width >= 1310 && width <= 1347) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 158px)');
-    } else if (width >= 1200 && width <= 1309) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 152px)');
-    } else if (width >= 1100 && width <= 1199) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(75px, 15vw, 147px)');
-    } else if (width >= 1025 && width <= 1099) {
-      root.style.setProperty('--eye-top-position', '24%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(71px, 14vw, 141px)');
-    } else if (width >= 1000 && width <= 1024) {
-      root.style.setProperty('--eye-top-position', '23%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(70px, 14vw, 141px)');
-    } else if (width >= 900 && width <= 999) {
-      root.style.setProperty('--eye-top-position', '18%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(70px, 14vw, 141px)');
-    } else if (width >= 800 && width <= 899) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 133px)');
-    } else if (width >= 700 && width <= 799) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 18vw, 120px)');
-    } else if (width >= 600 && width <= 699) {
-      root.style.setProperty('--eye-top-position', '25%');
-      root.style.setProperty('--eye-left-position', '45%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 110px)');
-    } else if (width >= 500 && width <= 599) {
-      root.style.setProperty('--eye-top-position', '21%');
-      root.style.setProperty('--eye-left-position', '45%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 100px)');
-    } else if (width >= 400 && width <= 499) {
-      root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '53%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 75px)');
-    } else {
-      root.style.setProperty('--eye-top-position', '25%');
-      root.style.setProperty('--eye-left-position', '53%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 62px)');
-    }
-  };
-
-  // Set up resize listener for responsive eye positioning
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // Initial positioning
-    updateEyePosition();
-
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-      updateEyePosition();
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Force update after a short delay to ensure DOM is ready
-    const timeoutId = setTimeout(() => {
-      updateEyePosition();
-    }, 100);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId);
-    };
-  }, []);
 
   // Sync animation progress with Lottie frames
   useEffect(() => {
@@ -306,7 +175,13 @@ export default function Home() {
           overflow-x: hidden;
           width: 100%;
           max-width: 100vw;
-          padding-top: 70px;
+          padding-top: 90px;
+        }
+
+        @media (max-width: 768px) {
+          .home-page {
+            padding-top: 70px;
+          }
         }
 
         /* Desktop Section - Responsive for all devices */
@@ -661,7 +536,40 @@ export default function Home() {
           max-width: 100%;
           width: 100%;
           position: relative;
-          overflow: hidden;
+          overflow: visible;
+          z-index: 1;
+          height: calc(252px + (100vw - 770px) * 0.33);
+          background-color: black;
+        }
+
+        @media (max-width: 300px) {
+          .lottie-hero-section {
+            height: 250px;
+          }
+        }
+
+        @media (min-width: 301px) and (max-width: 400px) {
+          .lottie-hero-section {
+            height: 250px;
+          }
+        }
+
+        @media (min-width: 401px) and (max-width: 500px) {
+          .lottie-hero-section {
+            height: 300px;
+          }
+        }
+
+        @media (min-width: 501px) and (max-width: 999px) {
+          .lottie-hero-section {
+            height: calc(252px + (100vw - 770px) * 0.33);
+          }
+        }
+
+        @media (min-width: 1000px) {
+          .lottie-hero-section {
+            height: calc(288px + (100vw - 1100px) * 0.26);
+          }
         }
 
         /* Ensure animation covers full width */
@@ -1173,20 +1081,236 @@ export default function Home() {
         /* Eye breathing wrapper */
         .eye-breathing-wrapper {
           position: absolute;
-          top: var(--eye-top-position, 42%);
-          left: var(--eye-left-position, 48%);
-          width: var(--eye-width, clamp(80px, 15vw, 150px));
-          height: var(--eye-width, clamp(80px, 15vw, 150px));
           transform: translate(-50%, -50%);
           transform-origin: center;
           z-index: 10;
           pointer-events: none;
           animation: eyeBreathing 4s ease-in-out infinite;
+          top: 26%;
+          left: 46%;
+          width: clamp(85px, 15vw, 190px);
+          height: clamp(85px, 15vw, 190px);
+        }
+
+        @media (max-width: 399px) {
+          .eye-breathing-wrapper {
+            top: 25%;
+            left: 53%;
+            width: clamp(50px, 26vw, 62px);
+            height: clamp(50px, 26vw, 62px);
+          }
+        }
+
+        @media (min-width: 400px) and (max-width: 499px) {
+          .eye-breathing-wrapper {
+            top: 26%;
+            left: 53%;
+            width: clamp(50px, 26vw, 75px);
+            height: clamp(50px, 26vw, 75px);
+          }
         }
 
         @media (max-width: 500px) {
           .eye-breathing-wrapper {
             display: none;
+          }
+        }
+
+        @media (min-width: 500px) and (max-width: 599px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(50px, 26vw, 100px);
+            height: clamp(50px, 26vw, 100px);
+          }
+        }
+
+        @media (min-width: 600px) and (max-width: 699px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(50px, 26vw, 110px);
+            height: clamp(50px, 26vw, 110px);
+          }
+        }
+
+        @media (min-width: 700px) and (max-width: 799px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(50px, 18vw, 120px);
+            height: clamp(50px, 18vw, 120px);
+          }
+        }
+
+        @media (min-width: 800px) and (max-width: 899px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(50px, 26vw, 133px);
+            height: clamp(50px, 26vw, 133px);
+          }
+        }
+
+        @media (min-width: 900px) and (max-width: 999px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(70px, 14vw, 141px);
+            height: clamp(70px, 14vw, 141px);
+          }
+        }
+
+        @media (min-width: 1000px) and (max-width: 1024px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(70px, 14vw, 141px);
+            height: clamp(70px, 14vw, 141px);
+          }
+        }
+
+        @media (min-width: 1025px) and (max-width: 1099px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(71px, 14vw, 141px);
+            height: clamp(71px, 14vw, 141px);
+          }
+        }
+
+        @media (min-width: 1100px) and (max-width: 1199px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(75px, 15vw, 147px);
+            height: clamp(75px, 15vw, 147px);
+          }
+        }
+
+        @media (min-width: 1200px) and (max-width: 1309px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(80px, 15vw, 152px);
+            height: clamp(80px, 15vw, 152px);
+          }
+        }
+
+        @media (min-width: 1310px) and (max-width: 1347px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(80px, 15vw, 158px);
+            height: clamp(80px, 15vw, 158px);
+          }
+        }
+
+        @media (min-width: 1348px) and (max-width: 1366px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(80px, 15vw, 163px);
+            height: clamp(80px, 15vw, 163px);
+          }
+        }
+
+        @media (min-width: 1367px) and (max-width: 1375px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 166px);
+            height: clamp(85px, 15vw, 166px);
+          }
+        }
+
+        @media (min-width: 1376px) and (max-width: 1390px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 169px);
+            height: clamp(85px, 15vw, 169px);
+          }
+        }
+
+        @media (min-width: 1391px) and (max-width: 1405px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 171px);
+            height: clamp(85px, 15vw, 171px);
+          }
+        }
+
+        @media (min-width: 1406px) and (max-width: 1420px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 173px);
+            height: clamp(85px, 15vw, 173px);
+          }
+        }
+
+        @media (min-width: 1421px) and (max-width: 1435px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 175px);
+            height: clamp(85px, 15vw, 175px);
+          }
+        }
+
+        @media (min-width: 1436px) and (max-width: 1452px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 178px);
+            height: clamp(85px, 15vw, 178px);
+          }
+        }
+
+        @media (min-width: 1453px) and (max-width: 1476px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 181px);
+            height: clamp(85px, 15vw, 181px);
+          }
+        }
+
+        @media (min-width: 1477px) and (max-width: 1490px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 184px);
+            height: clamp(85px, 15vw, 184px);
+          }
+        }
+
+        @media (min-width: 1491px) and (max-width: 1498px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 186px);
+            height: clamp(85px, 15vw, 186px);
+          }
+        }
+
+        @media (min-width: 1500px) and (max-width: 1599px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 192px);
+            height: clamp(85px, 15vw, 192px);
+          }
+        }
+
+        @media (min-width: 1600px) {
+          .eye-breathing-wrapper {
+            top: 49%;
+            left: 50%;
+            width: clamp(85px, 15vw, 202px);
+            height: clamp(85px, 15vw, 205px);
           }
         }
 
@@ -1196,7 +1320,7 @@ export default function Home() {
           top: 50%;
           left: 50%;
           width: 100%;
-          height: auto;
+          height: 100%;
           transform: translate(-50%, -50%);
           transform-origin: center;
           pointer-events: none;
@@ -1838,24 +1962,7 @@ export default function Home() {
 
       <div className="home-page">
         {/* Lottie Animation Section */}
-        <div
-          className="lottie-hero-section"
-          style={{
-            width: '100%',
-            height: windowWidth >= 1000
-              ? 'calc(288px + (100vw - 1100px) * 0.26)'
-              : windowWidth <= 300
-              ? '250px'
-              : windowWidth <= 400
-              ? '250px'
-              : windowWidth <= 500
-              ? '300px'
-              : 'calc(252px + (100vw - 770px) * 0.33)',
-            position: 'relative',
-            overflow: 'visible',
-            backgroundColor: 'black',
-          }}
-        >
+        <div className="lottie-hero-section">
           {loading && (
             <div className="endor-animation-loading" style={{ width: '100%', height: '100%' }}>
               <div className="loading-spinner">
@@ -1924,26 +2031,19 @@ export default function Home() {
                   <div className="status-bar"></div>
                 </div>
               </div>
-
-              {/* Eye icon overlay synchronized with Lottie frames */}
-              <div className="eye-breathing-wrapper">
-                <motion.img
-                  src="/images/eye.svg"
-                  alt="Eye icon"
-                  aria-label="Eye icon"
-                  role="img"
-                  className="endor-eye-overlay"
-                  style={{
-                    x: eyeTranslateX,
-                    y: eyeTranslateY,
-                    rotate: eyeRotate,
-                    scale: eyeScale
-                  }}
-                  transition={{ type: "tween", ease: "linear", duration: 0 }}
-                />
-              </div>
             </>
           )}
+
+          {/* Eye icon overlay - loads independently */}
+          <div className="eye-breathing-wrapper">
+            <img
+              src="/images/eye.svg"
+              alt="Eye icon"
+              aria-label="Eye icon"
+              role="img"
+              className="endor-eye-overlay"
+            />
+          </div>
         </div>
         
         {/* Desktop Section */}
