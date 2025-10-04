@@ -1,3 +1,5 @@
+Options -Indexes
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
@@ -7,5 +9,11 @@
   RewriteCond %{REQUEST_FILENAME} !-d
 
   # Rewrite everything else to index.html
-  RewriteRule ^ index.html [L]
+  RewriteRule ^(.*)$ /index.html [L]
 </IfModule>
+
+# Allow access to static files
+<FilesMatch "\.(html|css|js|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$">
+  Order allow,deny
+  Allow from all
+</FilesMatch>
