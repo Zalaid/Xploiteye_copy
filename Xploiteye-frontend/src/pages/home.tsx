@@ -861,6 +861,18 @@ export default function Home() {
         }
 
         @media (max-width: 500px) {
+          .mobile-processing-box::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.3) 0%, rgba(255, 0, 0, 0.15) 50%, transparent 100%);
+            z-index: -1;
+            filter: blur(20px);
+          }
+
           .mobile-processing-box {
             display: flex;
             position: absolute;
@@ -868,15 +880,28 @@ export default function Home() {
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
-            background: linear-gradient(135deg, rgba(0, 26, 10, 0.95) 0%, rgba(0, 0, 0, 0.95) 100%);
-            border: 2px solid #00f078;
-            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.95) 100%);
+            border: 1.5px solid rgba(0, 240, 120, 0.6);
+            isolation: isolate;
+            clip-path: polygon(
+              8px 0,
+              calc(100% - 8px) 0,
+              100% 8px,
+              100% calc(100% - 8px),
+              calc(100% - 8px) 100%,
+              8px 100%,
+              0 calc(100% - 8px),
+              0 8px
+            );
             padding: 22px 10px;
             flex-direction: column;
             align-items: center;
             gap: 14px;
-            box-shadow: 0 8px 32px rgba(0, 240, 120, 0.3);
-            backdrop-filter: blur(10px);
+            box-shadow:
+              0 4px 20px rgba(0, 240, 120, 0.2),
+              0 0 30px rgba(0, 240, 120, 0.15),
+              inset 0 1px 0 rgba(0, 240, 120, 0.1);
+            backdrop-filter: blur(12px);
             width: 60px;
             height: 103px;
           }
@@ -953,6 +978,163 @@ export default function Home() {
           .processing-text {
             display: none;
           }
+
+          .shield-icon {
+            width: 52px;
+            height: 52px;
+            opacity: 1;
+            filter: drop-shadow(0 0 6px rgba(0, 240, 120, 0.6)) drop-shadow(0 0 8px rgba(63, 225, 243, 0.4));
+          }
+
+          .pulse-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: #00f078;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            animation: pulse-move 1.5s ease-in-out infinite;
+          }
+
+          @keyframes pulse-move {
+            0%, 100% {
+              opacity: 0;
+              transform: translateY(-50%) scaleX(0);
+            }
+            50% {
+              opacity: 1;
+              transform: translateY(-50%) scaleX(1);
+            }
+          }
+
+          .shield-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+          }
+
+          .rotating-ring {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            border: 2px solid transparent;
+            border-top-color: #3fe1f3;
+            border-right-color: #9f69f7;
+            border-radius: 50%;
+            animation: ring-rotate 2s linear infinite;
+            opacity: 0.8;
+          }
+
+          .rotating-ring::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid transparent;
+            border-left-color: #00f078;
+            border-bottom-color: #00f078;
+            border-radius: 50%;
+            animation: ring-rotate-reverse 3s linear infinite;
+            opacity: 0.5;
+          }
+
+          @keyframes ring-rotate {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+
+          @keyframes ring-rotate-reverse {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(-360deg);
+            }
+          }
+
+          .processing-particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            animation: particle-orbit 3s linear infinite;
+            box-shadow: 0 0 4px currentColor;
+          }
+
+          .particle-1 {
+            background: #00f078;
+            animation-delay: 0s;
+          }
+
+          .particle-2 {
+            background: #3fe1f3;
+            animation-delay: 1s;
+          }
+
+          .particle-3 {
+            background: #9f69f7;
+            animation-delay: 2s;
+          }
+
+          @keyframes particle-orbit {
+            0% {
+              transform: rotate(0deg) translateX(20px) rotate(0deg);
+              opacity: 0;
+            }
+            50% {
+              opacity: 1;
+            }
+            100% {
+              transform: rotate(360deg) translateX(20px) rotate(-360deg);
+              opacity: 0;
+            }
+          }
+
+          .status-indicators {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+          }
+
+          .status-bar {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+            animation: status-pulse 1.5s ease-in-out infinite;
+          }
+
+          .status-bar:nth-child(1) {
+            animation-delay: 0s;
+            background: rgba(0, 240, 120, 0.3);
+          }
+
+          .status-bar:nth-child(2) {
+            animation-delay: 0.2s;
+            background: rgba(0, 240, 120, 0.3);
+          }
+
+          .status-bar:nth-child(3) {
+            animation-delay: 0.4s;
+            background: rgba(0, 240, 120, 0.3);
+          }
+
+          @keyframes status-pulse {
+            0%, 100% {
+              opacity: 0.3;
+              box-shadow: none;
+            }
+            50% {
+              opacity: 1;
+              box-shadow: 0 0 8px currentColor;
+            }
+          }
         }
 
         @media (min-width: 401px) and (max-width: 500px) {
@@ -979,6 +1161,12 @@ export default function Home() {
           z-index: 10;
           pointer-events: none;
           animation: eyeBreathing 4s ease-in-out infinite;
+        }
+
+        @media (max-width: 500px) {
+          .eye-breathing-wrapper {
+            display: none;
+          }
         }
 
         /* Eye overlay styles */
@@ -1685,13 +1873,34 @@ export default function Home() {
               
               {/* Mobile Processing Animation */}
               <div className="mobile-processing-box">
-                <div className="processing-bar-container">
-                  <div className="processing-bar"></div>
+                <div className="shield-container">
+                  <div className="rotating-ring"></div>
+                  <div className="processing-particle particle-1"></div>
+                  <div className="processing-particle particle-2"></div>
+                  <div className="processing-particle particle-3"></div>
+                  <svg className="shield-icon" viewBox="0 0 24 24">
+                    <defs>
+                      <linearGradient id="shield-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style={{ stopColor: '#00f078', stopOpacity: 1 }} />
+                        <stop offset="50%" style={{ stopColor: '#3fe1f3', stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: '#9f69f7', stopOpacity: 1 }} />
+                      </linearGradient>
+                    </defs>
+                    {/* First X line - outer */}
+                    <path d="M5.5 5.5 L18.5 18.5" stroke="url(#shield-gradient)" strokeWidth="2" strokeLinecap="round"/>
+                    {/* First X line - inner */}
+                    <path d="M6.5 6.5 L17.5 17.5" stroke="url(#shield-gradient)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+
+                    {/* Second X line - outer */}
+                    <path d="M18.5 5.5 L5.5 18.5" stroke="url(#shield-gradient)" strokeWidth="2" strokeLinecap="round"/>
+                    {/* Second X line - inner */}
+                    <path d="M17.5 6.5 L6.5 17.5" stroke="url(#shield-gradient)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+                  </svg>
                 </div>
-                <div className="processing-dots">
-                  <div className="processing-dot"></div>
-                  <div className="processing-dot"></div>
-                  <div className="processing-dot"></div>
+                <div className="status-indicators">
+                  <div className="status-bar"></div>
+                  <div className="status-bar"></div>
+                  <div className="status-bar"></div>
                 </div>
               </div>
 
