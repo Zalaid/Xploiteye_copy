@@ -26,11 +26,15 @@ export default function Home() {
     
     const width = window.innerWidth;
     const root = document.documentElement;
-    
-    if (width >= 1500) {
-      root.style.setProperty('--eye-top-position', '26%');
+
+    if (width >= 1600) {
+      root.style.setProperty('--eye-top-position', '27%');
       root.style.setProperty('--eye-left-position', '47%');
-      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 190px)');
+      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 192px)');
+    } else if (width >= 1500) {
+      root.style.setProperty('--eye-top-position', '27%');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 192px)');
     } else if (width >= 1491 && width <= 1498) {
       root.style.setProperty('--eye-top-position', '27%');
       root.style.setProperty('--eye-left-position', '47%');
@@ -40,77 +44,77 @@ export default function Home() {
       root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 184px)');
     } else if (width >= 1453 && width <= 1476) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '47%');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 181px)');
     } else if (width >= 1436 && width <= 1452) {
       root.style.setProperty('--eye-top-position', '27%');
       root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 178px)');
     } else if (width >= 1421 && width <= 1435) {
-      root.style.setProperty('--eye-top-position', '27%');
+      root.style.setProperty('--eye-top-position', '26%');
       root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 175px)');
     } else if (width >= 1406 && width <= 1420) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 173px)');
     } else if (width >= 1391 && width <= 1405) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 171px)');
     } else if (width >= 1376 && width <= 1390) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '47%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 169px)');
     } else if (width >= 1367 && width <= 1375) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
       root.style.setProperty('--eye-width', 'clamp(85px, 15vw, 166px)');
     } else if (width >= 1348 && width <= 1366) {
-      root.style.setProperty('--eye-top-position', '28%');
-      root.style.setProperty('--eye-left-position', '48%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 160px)');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 163px)');
     } else if (width >= 1310 && width <= 1347) {
-      root.style.setProperty('--eye-top-position', '28%');
-      root.style.setProperty('--eye-left-position', '48%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 153px)');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 158px)');
     } else if (width >= 1200 && width <= 1309) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
-      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 150px)');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(80px, 15vw, 152px)');
     } else if (width >= 1100 && width <= 1199) {
       root.style.setProperty('--eye-top-position', '26%');
-      root.style.setProperty('--eye-left-position', '49%');
-      root.style.setProperty('--eye-width', 'clamp(75px, 15vw, 145px)');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(75px, 15vw, 147px)');
     } else if (width >= 1025 && width <= 1099) {
-      root.style.setProperty('--eye-top-position', '25%');
-      root.style.setProperty('--eye-left-position', '49%');
+      root.style.setProperty('--eye-top-position', '24%');
+      root.style.setProperty('--eye-left-position', '46%');
       root.style.setProperty('--eye-width', 'clamp(71px, 14vw, 141px)');
     } else if (width >= 1000 && width <= 1024) {
-      root.style.setProperty('--eye-top-position', '25%');
-      root.style.setProperty('--eye-left-position', '50s%');
+      root.style.setProperty('--eye-top-position', '23%');
+      root.style.setProperty('--eye-left-position', '46%');
       root.style.setProperty('--eye-width', 'clamp(70px, 14vw, 141px)');
     } else if (width >= 900 && width <= 999) {
-      root.style.setProperty('--eye-top-position', '27%');
+      root.style.setProperty('--eye-top-position', '18%');
       root.style.setProperty('--eye-left-position', '46%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 141px)');
+      root.style.setProperty('--eye-width', 'clamp(70px, 14vw, 141px)');
     } else if (width >= 800 && width <= 899) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '48%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 130px)');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '47%');
+      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 133px)');
     } else if (width >= 700 && width <= 799) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '50%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 18vw, 115px)');
+      root.style.setProperty('--eye-top-position', '26%');
+      root.style.setProperty('--eye-left-position', '46%');
+      root.style.setProperty('--eye-width', 'clamp(50px, 18vw, 120px)');
     } else if (width >= 600 && width <= 699) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '50%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 100px)');
+      root.style.setProperty('--eye-top-position', '25%');
+      root.style.setProperty('--eye-left-position', '45%');
+      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 110px)');
     } else if (width >= 500 && width <= 599) {
-      root.style.setProperty('--eye-top-position', '27%');
-      root.style.setProperty('--eye-left-position', '51%');
-      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 85px)');
+      root.style.setProperty('--eye-top-position', '21%');
+      root.style.setProperty('--eye-left-position', '45%');
+      root.style.setProperty('--eye-width', 'clamp(50px, 26vw, 100px)');
     } else if (width >= 400 && width <= 499) {
       root.style.setProperty('--eye-top-position', '26%');
       root.style.setProperty('--eye-left-position', '53%');
@@ -125,16 +129,26 @@ export default function Home() {
   // Set up resize listener for responsive eye positioning
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
+    // Initial positioning
+    updateEyePosition();
+
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
       updateEyePosition();
     };
-    
+
     window.addEventListener('resize', handleResize);
-    updateEyePosition();
-    
-    return () => window.removeEventListener('resize', handleResize);
+
+    // Force update after a short delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      updateEyePosition();
+    }, 100);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   // Sync animation progress with Lottie frames
