@@ -144,7 +144,13 @@ export default function Header() {
         .header--hidden {
           transform: translateY(-100%);
         }
-        
+
+        @media (min-width: 501px) {
+          .header--hidden {
+            transform: translateY(0) !important;
+          }
+        }
+
         .header--scrolled {
           box-shadow: 0 4px 20px rgba(0, 240, 120, 0.1);
           border-bottom-color: rgba(255, 255, 255, 0.1);
