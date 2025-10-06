@@ -264,7 +264,7 @@ const PaymentRequirements = () => {
                 
                 <div className="contact-item">
                   <h4>📞 Phone Support</h4>
-                  <p>+1 (555) 123-XPLOIT</p>
+                  <p>+92 3164454571</p>
                   <p>Available during business hours</p>
                 </div>
                 
@@ -387,7 +387,7 @@ const PaymentRequirements = () => {
               <h3>Contact Methods</h3>
               <ul>
                 <li><strong>Email:</strong> xploiteye@gmail.com</li>
-                <li><strong>Phone:</strong> 03164454571</li>
+                <li><strong>Phone:</strong> 92 3164454571</li>
                 <li><strong>Business Registration:</strong> XploitEye Inc.</li>
                 <li><strong>Mailing Address:</strong> CL-3 Abdalian Housing Society, Johar Town, Lahore</li>
               </ul>
