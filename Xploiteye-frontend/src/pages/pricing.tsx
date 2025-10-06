@@ -19,8 +19,8 @@ const Pricing: FC = () => {
       id: 'starter',
       name: 'Starter',
       description: 'Perfect for individual developers and small projects',
-      monthlyPrice: '49',
-      annualPrice: '490',
+      monthlyPrice: '1000',
+      annualPrice: '8000',
       features: [
         'Up to 5 active scans',
         'Basic vulnerability detection',
@@ -35,8 +35,8 @@ const Pricing: FC = () => {
       id: 'professional',
       name: 'Professional',
       description: 'For growing teams and serious security needs',
-      monthlyPrice: '149',
-      annualPrice: '1490',
+      monthlyPrice: '1500',
+      annualPrice: '5000',
       highlighted: true,
       features: [
         'Unlimited active scans',
@@ -531,7 +531,7 @@ const Pricing: FC = () => {
                   ) : (
                     <>
                       <div className="price-amount">
-                        <span className="currency">$</span>
+                        <span className="currency">Rs</span>
                         <span className="price">
                           {billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice}
                         </span>
@@ -541,7 +541,7 @@ const Pricing: FC = () => {
                       </div>
                       {billingCycle === 'annual' && (
                         <p className="price-note">
-                          ${(parseInt(plan.annualPrice) / 12).toFixed(0)}/month billed annually
+                          Rs{(parseInt(plan.annualPrice) / 12).toFixed(0)}/month billed annually
                         </p>
                       )}
                     </>

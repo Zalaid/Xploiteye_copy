@@ -260,22 +260,22 @@ export default function Footer() {
             <div className="footer-section">
               <h3 className="footer-title">Products</h3>
               <ul className="footer-links">
-                <li><a href="#" className="footer-link">XPLOITEYE Core</a></li>
-                <li><a href="#" className="footer-link">XPLOITEYE Pro</a></li>
-                <li><a href="#" className="footer-link">XPLOITEYE Patches</a></li>
-                <li><a href="#" className="footer-link">Enterprise Solutions</a></li>
+                <li><Link href="/dashboard" className="footer-link">XPLOITEYE Core</Link></li>
+                <li><Link href="/dashboard" className="footer-link">XPLOITEYE Pro</Link></li>
+                <li><Link href="/dashboard" className="footer-link">XPLOITEYE Patches</Link></li>
+                <li><Link href="/contactus" className="footer-link">Enterprise Solutions</Link></li>
               </ul>
             </div>
 
-            {/* Resources Section */}
+            {/* Legal & Policies Section */}
             <div className="footer-section">
-              <h3 className="footer-title">Resources</h3>
+              <h3 className="footer-title">Legal & Policies</h3>
               <ul className="footer-links">
-                <li><Link href="/doc" className="footer-link">Documentation</Link></li>
-                <li><a href="#" className="footer-link">API Reference</a></li>
-                <li><a href="#" className="footer-link">Security Advisories</a></li>
-                <li><a href="#" className="footer-link">Blog</a></li>
-                <li><a href="#" className="footer-link">Case Studies</a></li>
+                <li><Link href="/payment_req#privacy-policy" className="footer-link">Privacy Policy</Link></li>
+                <li><Link href="/payment_req#terms-conditions" className="footer-link">Terms and Conditions</Link></li>
+                <li><Link href="/payment_req#return-policy" className="footer-link">Return Policy</Link></li>
+                <li><Link href="/payment_req#refund-policy" className="footer-link">Refund Policy</Link></li>
+                <li><Link href="/payment_req#shipping-policy" className="footer-link">Shipping Policy</Link></li>
               </ul>
             </div>
 
@@ -284,10 +284,9 @@ export default function Footer() {
               <h3 className="footer-title">Company</h3>
               <ul className="footer-links">
                 <li><Link href="/about" className="footer-link">About Us</Link></li>
-                <li><a href="#" className="footer-link">Careers</a></li>
+                <li><Link href="/payment_req#address" className="footer-link">Address</Link></li>
                 <li><Link href="/contactus" className="footer-link">Contact</Link></li>
-                <li><a href="#" className="footer-link">Privacy Policy</a></li>
-                <li><a href="#" className="footer-link">Terms of Service</a></li>
+                <li><Link href="/doc" className="footer-link">Documentation</Link></li>
               </ul>
             </div>
 
@@ -295,10 +294,21 @@ export default function Footer() {
             <div className="footer-section">
               <h3 className="footer-title">Support</h3>
               <ul className="footer-links">
-                <li><a href="#" className="footer-link">Help Center</a></li>
-                <li><a href="#" className="footer-link">Community</a></li>
-                <li><a href="#" className="footer-link">Status Page</a></li>
+                <li><Link href="/payment_req#faqs" className="footer-link">Help Center</Link></li>
+                <li><Link href="/payment_req#customer-service" className="footer-link">Customer Service</Link></li>
+                <li><Link href="/payment_req#operational-hours" className="footer-link">Support Hours</Link></li>
                 <li><Link href="/contactus" className="footer-link">Contact Support</Link></li>
+              </ul>
+            </div>
+
+            {/* Policies Section */}
+            <div className="footer-section">
+              <h3 className="footer-title">Policies</h3>
+              <ul className="footer-links">
+                <li><Link href="/payment_req#return-policy" className="footer-link">Return Policy</Link></li>
+                <li><Link href="/payment_req#refund-policy" className="footer-link">Refund Policy</Link></li>
+                <li><Link href="/payment_req#shipping-policy" className="footer-link">Shipping Policy</Link></li>
+                <li><Link href="/payment_req#faqs" className="footer-link">FAQs</Link></li>
               </ul>
             </div>
           </div>
