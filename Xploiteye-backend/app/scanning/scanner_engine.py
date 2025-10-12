@@ -1350,6 +1350,10 @@ async def report_formatting_node(state: ScanState) -> ScanState:
                                 # Parse other CVE details
                                 elif 'CVE ID:' in line:
                                     cve_info['cve_id'] = line.split('CVE ID:')[1].strip()
+                                elif 'Description:' in line:
+                                    cve_info['description'] = line.split('Description:')[1].strip()
+                                elif 'Impact:' in line:
+                                    cve_info['impact'] = line.split('Impact:')[1].strip()
                                 elif 'Severity:' in line:
                                     cve_info['severity'] = line.split('Severity:')[1].strip()
                                 elif 'CVSS Score:' in line:
