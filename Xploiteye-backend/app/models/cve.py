@@ -10,6 +10,7 @@ class CVEInDB(BaseModel):
     severity: str  # critical, high, medium, low
     cvss_score: Optional[float] = None
     description: str
+    impact: Optional[str] = None
     exploitable: bool = False
     remediated: bool = False
     privilege_escalation: bool = False
