@@ -7,6 +7,7 @@ export interface CVE {
   severity: 'critical' | 'high' | 'medium' | 'low'
   cvss_score?: number
   description: string
+  impact?: string
   exploitable: boolean
   remediated: boolean
   privilege_escalation: boolean

@@ -18,6 +18,7 @@ import {
   Network,
   Bug,
   ChevronRight,
+  ChevronDown,
   Globe,
   Server,
   Terminal,
@@ -244,6 +245,7 @@ export function ScanningModule() {
   const [isValidIP, setIsValidIP] = useState(false) // IP validation state
   const [isCheckingIP, setIsCheckingIP] = useState(false) // IP reachability check state
   const [ipCheckMessage, setIpCheckMessage] = useState("") // IP check status message
+  const [expandedCVE, setExpandedCVE] = useState<string | null>(null) // Track which CVE attack vector is expanded
   const selectedTargetType = "network" // Default to network scanning
 
   // Get wait time before starting progress (when to go to 95% and wait)
@@ -3120,24 +3122,80 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                             <div className="text-white font-bold text-lg">{cve.service || 'Unknown'}</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-center space-x-2">
-                          {cve.exploitable && (
-                            <div className="flex items-center space-x-1 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
-                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                              <span className="text-red-400 text-xs font-medium">Exploitable</span>
-                            </div>
-                          )}
-                          {cve.remediated ? (
-                            <div className="flex items-center space-x-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-green-400 text-xs font-medium">Remediated</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-1 bg-orange-500/10 border border-orange-500/30 rounded px-2 py-1">
-                              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                              <span className="text-orange-400 text-xs font-medium">Active Threat</span>
-                            </div>
-                          )}
+                        <div className="flex flex-col items-center space-y-2 w-full">
+                          <div className="flex items-center justify-center space-x-2">
+                            {cve.exploitable && (
+                              <div className="flex items-center space-x-1 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
+                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                <span className="text-red-400 text-xs font-medium">Exploitable</span>
+                              </div>
+                            )}
+                            {cve.remediated && (
+                              <div className="flex items-center space-x-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-green-400 text-xs font-medium">Remediated</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* See Attack Vector Dropdown */}
+                          <button
+                            onClick={() => setExpandedCVE(expandedCVE === cve.cve_id ? null : cve.cve_id)}
+                            className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 rounded-lg px-4 py-2 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 cursor-pointer w-full justify-center"
+                          >
+                            <Target className="w-4 h-4 text-purple-400" />
+                            <span className="text-purple-300 text-sm font-semibold">See Attack Vector</span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-purple-400 transition-transform duration-300 ${
+                                expandedCVE === cve.cve_id ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {/* Attack Vector Dropdown Content */}
+                          <AnimatePresence>
+                            {expandedCVE === cve.cve_id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0, scaleY: 0 }}
+                                animate={{ opacity: 1, height: 'auto', scaleY: 1 }}
+                                exit={{ opacity: 0, height: 0, scaleY: 0 }}
+                                transition={{
+                                  duration: 0.4,
+                                  ease: [0.4, 0, 0.2, 1],
+                                  opacity: { duration: 0.3 }
+                                }}
+                                style={{ transformOrigin: 'top' }}
+                                className="w-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-600/30 rounded-lg p-4 space-y-3 overflow-hidden"
+                              >
+                                {cve.description && (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center space-x-2">
+                                      <Info className="w-4 h-4 text-blue-400" />
+                                      <h4 className="text-blue-300 text-xs font-semibold uppercase">Description</h4>
+                                    </div>
+                                    <p className="text-gray-300 text-sm leading-relaxed pl-6">
+                                      {cve.description}
+                                    </p>
+                                  </div>
+                                )}
+                                {cve.impact && (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center space-x-2">
+                                      <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                      <h4 className="text-orange-300 text-xs font-semibold uppercase">Impact</h4>
+                                    </div>
+                                    <p className="text-gray-300 text-sm leading-relaxed pl-6">
+                                      {cve.impact}
+                                    </p>
+                                  </div>
+                                )}
+                                {!cve.description && !cve.impact && (
+                                  <p className="text-gray-400 text-sm text-center italic">
+                                    No attack vector details available for this CVE.
+                                  </p>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </div>
                       {/* Actions */}
