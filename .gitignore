@@ -71,3 +71,5 @@ Thumbs.db
 .idea/
 *.swp
 ```
+Xploiteye-backend/scanning_results/
+Xploiteye-backend/scanning_reports/
