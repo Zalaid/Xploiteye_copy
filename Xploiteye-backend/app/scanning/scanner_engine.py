@@ -1416,6 +1416,13 @@ Vulnerabilities (top 3): {vulns_str}
 
 Based on the scan data with {compact_data['open_ports']} open ports and {compact_data['cves_found']} CVEs found, calculate appropriate risk score 1-10 and generate recommendations.
 
+IMPORTANT: risk_score must be a NUMBER between 1-10 (not a string). Calculate based on:
+- Number of CVEs found (more CVEs = higher score)
+- Number of open/vulnerable ports (more ports = higher score)
+- Severity of vulnerabilities
+
+risk_level must be one of: "low", "medium", "high", "critical"
+
 Return complete valid JSON:
 
 {{
@@ -1429,8 +1436,8 @@ Return complete valid JSON:
     "critical_ports": {compact_data['critical_ports']},
     "vulnerable_ports": {compact_data['vulnerable_ports']},
     "cves_found": {compact_data['cves_found']},
-    "risk_score": calculate_1_to_10_based_on_data,
-    "risk_level": "determine_based_on_score"
+    "risk_score": calculate_numeric_value_1_to_10,
+    "risk_level": "low_medium_high_or_critical"
   }},
   "scan_coverage": {{
     "port_range": "{compact_data['port_range']}",
@@ -1439,9 +1446,9 @@ Return complete valid JSON:
   }},
   "os_information": {json.dumps(compact_data['os_data']) if compact_data['os_data'] else "{}"},
   "risk_assessment": {{
-    "risk_score": same_as_summary,
-    "risk_level": "same_as_summary",
-    "recommendations": generate_specific_recommendations_based_on_findings
+    "risk_score": use_same_numeric_value_as_summary_risk_score,
+    "risk_level": use_same_value_as_summary_risk_level,
+    "recommendations": ["generate", "array", "of", "specific", "security", "recommendations"]
   }},
   "services": {json.dumps(scan_data["services"]) if scan_data["services"] else "[]"},
   "gpt_selected_services": {json.dumps(scan_data["gpt_selected_services"]) if scan_data["gpt_selected_services"] else "[]"},

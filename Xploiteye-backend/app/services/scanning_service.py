@@ -685,27 +685,60 @@ class ScanningService:
         try:
             reports_dir = settings.reports_dir
             if not os.path.exists(reports_dir):
+                logging.warning(f"Reports directory does not exist: {reports_dir}")
                 return []
 
             reports = []
             for filename in os.listdir(reports_dir):
-                if filename.endswith('.pdf') and filename.startswith(f"{user.id}_"):
-                    filepath = os.path.join(reports_dir, filename)
-                    stat = os.stat(filepath)
-                    reports.append({
-                        "filename": filename,
-                        "filepath": filepath,
-                        "size": stat.st_size,
-                        "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
-                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
-                    })
+                # Match both old pattern (ISO_Security_Report_{user_id}_...) and new pattern ({user_id}_...)
+                if filename.endswith('.pdf'):
+                    # Check if file belongs to user - match ISO_Security_Report_{user_id}_ or {user_id}_
+                    if f"_{user.id}_" in filename or filename.startswith(f"{user.id}_"):
+                        filepath = os.path.join(reports_dir, filename)
+                        stat = os.stat(filepath)
+
+                        # Extract metadata from filename for better display
+                        # Try to parse scan_id, target, scan_type from filename
+                        scan_id = "unknown"
+                        target = "unknown"
+                        scan_type = "unknown"
+                        generated_at = datetime.fromtimestamp(stat.st_ctime).isoformat()
+
+                        # Parse filename to extract information
+                        # Format: ISO_Security_Report_{user_id}_{target}_{scan_type}_{timestamp}.pdf
+                        try:
+                            if filename.startswith("ISO_Security_Report_"):
+                                parts = filename.replace("ISO_Security_Report_", "").replace(".pdf", "").split("_")
+                                if len(parts) >= 3:
+                                    # Skip user_id (first part), get target and scan_type
+                                    target = "_".join(parts[1:-2])  # Everything except first (user_id) and last 2 (scan_type, timestamp)
+                                    scan_type = parts[-2] if len(parts) >= 2 else "unknown"
+                                    # Convert target back to readable format
+                                    target = target.replace('_', '.')
+                        except Exception as parse_error:
+                            logging.warning(f"Could not parse filename {filename}: {parse_error}")
+
+                        reports.append({
+                            "filename": filename,
+                            "filepath": filepath,
+                            "scan_id": scan_id,
+                            "target": target,
+                            "scan_type": scan_type,
+                            "generated_at": generated_at,
+                            "file_size": stat.st_size,
+                            "status": "completed"
+                        })
 
             # Sort by creation time, newest first
-            reports.sort(key=lambda x: x["created"], reverse=True)
+            reports.sort(key=lambda x: x["generated_at"], reverse=True)
+
+            logging.info(f"Found {len(reports)} reports for user {user.id} in {reports_dir}")
             return reports
 
         except Exception as e:
             logging.error(f"Failed to list reports for user {user.id}: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
 # Global service instance

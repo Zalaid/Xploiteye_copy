@@ -309,7 +309,14 @@ async def download_report(
 ):
     """Download a PDF report"""
     # Verify the file belongs to the current user
-    if not filename.startswith(f"{current_user.id}_"):
+    # Match both old pattern (ISO_Security_Report_{user_id}_...) and new pattern ({user_id}_...)
+    user_owns_file = (
+        filename.startswith(f"{current_user.id}_") or
+        f"_{current_user.id}_" in filename
+    )
+
+    if not user_owns_file:
+        logging.warning(f"User {current_user.id} attempted to access unauthorized report: {filename}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this report"
@@ -318,11 +325,13 @@ async def download_report(
     file_path = os.path.join(settings.reports_dir, filename)
 
     if not os.path.exists(file_path):
+        logging.error(f"Report file not found: {file_path}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report file not found"
         )
 
+    logging.info(f"User {current_user.id} downloading report: {filename}")
     return FileResponse(
         path=file_path,
         filename=filename,
