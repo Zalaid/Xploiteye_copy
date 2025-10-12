@@ -37,29 +37,24 @@ class CVEService:
                 })
 
                 if not existing_cve:
-                    # Create proper description based on CVE data
+                    # Extract CVE data fields
                     cve_id = cve_data.get("cve_id", f"VULN-{ObjectId()}")
                     port = cve_data.get("port", "")
                     service = cve_data.get("service", "unknown")
                     severity = cve_data.get("severity", "medium").lower()
                     cvss_score = cve_data.get("cvss_score")
 
-                    # Create detailed description with CVE information
-                    if cve_id.startswith("CVE-"):
-                        if service == "ftp":
-                            description = f"FTP Service Vulnerability - {cve_id} - {severity.title()} severity remote code execution vulnerability"
-                        elif service == "ssh":
-                            description = f"SSH Service Vulnerability - {cve_id} - {severity.title()} severity authentication bypass vulnerability"
-                        elif service == "http":
-                            description = f"HTTP Service Vulnerability - {cve_id} - {severity.title()} severity web server vulnerability"
-                        elif service == "netbios-ssn":
-                            description = f"NetBIOS Session Service Vulnerability - {cve_id} - {severity.title()} severity SMB vulnerability"
-                        elif service == "domain":
-                            description = f"DNS Service Vulnerability - {cve_id} - {severity.title()} severity DNS server vulnerability"
-                        else:
+                    # Use actual description from scan data, or create fallback
+                    description = cve_data.get("description")
+                    if not description or description == "No description available":
+                        # Fallback to generic description only if no real description exists
+                        if cve_id.startswith("CVE-"):
                             description = f"{service.title()} Service Vulnerability - {cve_id} - {severity.title()} severity vulnerability"
-                    else:
-                        description = f"{severity.title()} vulnerability found in {service} service on port {port}"
+                        else:
+                            description = f"{severity.title()} vulnerability found in {service} service on port {port}"
+
+                    # Get impact from scan data (if available)
+                    impact = cve_data.get("impact")
 
                     # Parse CVSS score properly
                     try:
@@ -78,6 +73,7 @@ class CVEService:
                         severity=severity,
                         cvss_score=cvss_float,
                         description=description,
+                        impact=impact,
                         exploitable=exploitable,
                         remediated=False,
                         privilege_escalation=severity == 'critical',

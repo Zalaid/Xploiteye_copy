@@ -33,6 +33,7 @@ class CVEResponse(BaseModel):
     severity: str
     cvss_score: Optional[float]
     description: str
+    impact: Optional[str]
     exploitable: bool
     remediated: bool
     privilege_escalation: bool
