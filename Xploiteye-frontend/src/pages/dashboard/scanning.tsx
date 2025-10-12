@@ -1652,6 +1652,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 cve_id: vuln.cve_id || `VULN-${index + 1}`,
                 title: vuln.title || vuln.name || 'Vulnerability',
                 description: vuln.description || 'No description available',
+                impact: vuln.impact || null,
                 severity: vuln.severity || 'unknown',
                 cvss_score: vuln.cvss_score || 0,
                 references: vuln.references || [],
@@ -3152,19 +3153,17 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                           </button>
 
                           {/* Attack Vector Dropdown Content */}
-                          <AnimatePresence>
+                          <AnimatePresence mode="wait">
                             {expandedCVE === cve.cve_id && (
                               <motion.div
-                                initial={{ opacity: 0, height: 0, scaleY: 0 }}
-                                animate={{ opacity: 1, height: 'auto', scaleY: 1 }}
-                                exit={{ opacity: 0, height: 0, scaleY: 0 }}
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
                                 transition={{
-                                  duration: 0.4,
-                                  ease: [0.4, 0, 0.2, 1],
-                                  opacity: { duration: 0.3 }
+                                  duration: 0.2,
+                                  ease: "easeOut"
                                 }}
-                                style={{ transformOrigin: 'top' }}
-                                className="w-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-600/30 rounded-lg p-4 space-y-3 overflow-hidden"
+                                className="w-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-600/30 rounded-lg p-4 space-y-3"
                               >
                                 {cve.description && (
                                   <div className="space-y-1">
