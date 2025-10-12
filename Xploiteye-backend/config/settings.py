@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     langsmith_project: str = Field(default="netscan")
 
     # Scanning Directories
-    results_dir: str = Field(default="/home/kali/Desktop/XploitEye/xploiteye-backend/scanning_results")
-    reports_dir: str = Field(default="/home/kali/Desktop/XploitEye/xploiteye-backend/scanning_reports")
+    results_dir: str = Field(default="/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/scanning_results")
+    reports_dir: str = Field(default="/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/scanning_reports")
 
     # Tool Paths
     vulnx_path: str = Field(default="/home/kali/go/bin/vulnx")
