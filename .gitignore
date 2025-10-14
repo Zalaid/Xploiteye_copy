@@ -76,3 +76,7 @@ Thumbs.db
 ```
 Xploiteye-backend/scanning_results/
 Xploiteye-backend/scanning_reports/
+Xploiteye-backend/app/payment
+Xploiteye-backend/.env.payment.example
+PAYMENT_SETUP_GUIDE.md
+document.pdf
