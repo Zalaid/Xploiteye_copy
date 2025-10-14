@@ -25,7 +25,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      // Check for token in both keys (token and access_token)
+      const token = localStorage.getItem('token') || localStorage.getItem('access_token');
       if (!token) {
         setLoading(false);
         return;
@@ -45,13 +46,17 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
       } else {
         // Token is invalid, remove it
+        localStorage.removeItem('token');
         localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
         setIsAuthenticated(false);
         setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      localStorage.removeItem('token');
       localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
     }
@@ -164,13 +169,14 @@ export const AuthProvider = ({ children }) => {
             email: data.email
           };
         }
-        
-        // Normal login - store JWT token
+
+        // Normal login - store JWT token in both keys for consistency
+        localStorage.setItem('token', data.access_token);
         localStorage.setItem('access_token', data.access_token);
-        
+
         // Get user info
         await checkAuthStatus();
-        
+
         return { success: true };
       } else {
         return { 
@@ -189,7 +195,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token') || localStorage.getItem('access_token');
       if (token) {
         // Call backend logout endpoint
         await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -204,7 +210,9 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       // Clear local state regardless of backend response
+      localStorage.removeItem('token');
       localStorage.removeItem('access_token');
+      localStorage.removeItem('user'); // Also remove any stored user data
       setIsAuthenticated(false);
       setUser(null);
     }
@@ -229,7 +237,7 @@ export const AuthProvider = ({ children }) => {
 
   // API helper function for authenticated requests
   const apiCall = async (endpoint, options = {}) => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
@@ -248,12 +256,14 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, finalOptions);
-      
+
       // Handle session expired
       if (response.status === 401) {
         const data = await response.json();
         if (data.detail?.includes('Session expired')) {
+          localStorage.removeItem('token');
           localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
           setIsAuthenticated(false);
           setUser(null);
         }

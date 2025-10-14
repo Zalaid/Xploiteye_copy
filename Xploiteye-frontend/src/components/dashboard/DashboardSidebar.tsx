@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Settings,
   TrendingUp,
+  Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -136,9 +137,18 @@ export function DashboardSidebar({ collapsed, onToggle, userRole }: DashboardSid
         </nav>
 
         {/* Footer */}
-        <div className="p-2 border-t border-border">
-          <Button 
-            variant="ghost" 
+        <div className="p-2 border-t border-border space-y-1">
+          <Link href="/">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground hover:text-foreground"
+            >
+              <Globe className="w-5 h-5" />
+              {!collapsed && <span className="ml-3">Back to Website</span>}
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground"
             onClick={handleLogout}
           >

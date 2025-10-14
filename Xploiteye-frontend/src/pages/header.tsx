@@ -1,28 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-
-interface AuthContextType {
-  isAuthenticated: boolean;
-  user: { username: string } | null;
-  logout: () => void;
-}
-
-// Mock auth hook for standalone component
-const useAuth = (): AuthContextType => {
-  return {
-    isAuthenticated: false,
-    user: null,
-    logout: () => {}
-  };
-};
+import { useAuth } from '../auth/AuthContext';
 
 export default function Header() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const [show, setShow] = useState<boolean>(true);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const lastScrollY = useRef<number>(0);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated, user, logout } = useAuth();
 
   // Handle scroll effect for header shadow and visibility
@@ -87,14 +75,41 @@ export default function Header() {
   useEffect(() => {
     window.addEventListener('resize', updateLogoSize);
     updateLogoSize();
-    
+
     return () => {
       window.removeEventListener('resize', updateLogoSize);
     };
   }, []);
 
+  // Handle clicks outside user menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen(!isUserMenuOpen);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setIsUserMenuOpen(false);
+    router.push('/');
   };
 
   const handleNavClick = () => {
@@ -331,18 +346,176 @@ export default function Header() {
           cursor: pointer;
           transition: all 0.3s ease;
         }
-        
+
         .logout-btn:hover {
           background: #ff6b6b;
           color: white;
           transform: translateY(-1px);
         }
-        
+
         .user-icon {
           width: 16px;
           height: 16px;
           color: #31ff94;
           opacity: 1;
+        }
+
+        /* User Profile Menu Styles */
+        .user-profile-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .user-profile-button {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 12px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .user-profile-button:hover {
+          background: rgba(0, 240, 120, 0.1);
+          border-color: rgba(0, 240, 120, 0.3);
+        }
+
+        .user-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid #00f078;
+          object-fit: cover;
+          background: rgba(0, 240, 120, 0.2);
+        }
+
+        .user-avatar-placeholder {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid #00f078;
+          background: linear-gradient(135deg, #00f078 0%, #00c060 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 16px;
+          color: #000;
+          text-transform: uppercase;
+        }
+
+        .user-name-text {
+          color: #ffffff;
+          font-size: 0.9rem;
+          font-weight: 600;
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .user-dropdown-arrow {
+          width: 16px;
+          height: 16px;
+          color: rgba(255, 255, 255, 0.7);
+          transition: transform 0.3s ease;
+        }
+
+        .user-dropdown-arrow.open {
+          transform: rotate(180deg);
+        }
+
+        .user-dropdown-menu {
+          position: absolute;
+          top: calc(100% + 10px);
+          right: 0;
+          min-width: 200px;
+          background: rgba(0, 26, 10, 0.95);
+          backdrop-filter: blur(15px);
+          border: 1px solid rgba(0, 240, 120, 0.3);
+          border-radius: 16px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 240, 120, 0.1);
+          overflow: hidden;
+          z-index: 10000;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(-10px);
+          transition: all 0.3s ease;
+        }
+
+        .user-dropdown-menu.open {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        .user-dropdown-header {
+          padding: 16px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(0, 240, 120, 0.05);
+        }
+
+        .user-dropdown-name {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #ffffff;
+          margin-bottom: 4px;
+        }
+
+        .user-dropdown-email {
+          font-size: 0.8rem;
+          color: rgba(255, 255, 255, 0.6);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .user-dropdown-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          color: rgba(255, 255, 255, 0.8);
+          text-decoration: none;
+          font-size: 0.9rem;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          background: none;
+          border: none;
+          width: 100%;
+          text-align: left;
+          font-family: inherit;
+        }
+
+        .user-dropdown-item:hover {
+          background: rgba(0, 240, 120, 0.1);
+          color: #00f078;
+        }
+
+        .user-dropdown-item svg {
+          width: 18px;
+          height: 18px;
+          opacity: 0.8;
+        }
+
+        .user-dropdown-divider {
+          height: 1px;
+          background: rgba(255, 255, 255, 0.1);
+          margin: 4px 0;
+        }
+
+        .user-dropdown-logout {
+          color: #ff6b6b;
+        }
+
+        .user-dropdown-logout:hover {
+          background: rgba(255, 107, 107, 0.1);
+          color: #ff4444;
         }
         
         .signup-btn {
@@ -679,22 +852,86 @@ export default function Header() {
 
           {/* Section 3 - Auth Buttons (Right) */}
           <div className="auth-section">
-            {isAuthenticated ? (
-              <>
-                <Link href="/dashboard" className="dashboard-btn" onClick={handleNavClick}>
-                  <svg className="dashboard-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="7" height="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <rect x="14" y="3" width="7" height="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <rect x="14" y="12" width="7" height="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <rect x="3" y="16" width="7" height="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            {isAuthenticated && user ? (
+              <div className="user-profile-container" ref={userMenuRef}>
+                <button className="user-profile-button" onClick={toggleUserMenu}>
+                  {/* User Avatar */}
+                  {user.id ? (
+                    <img
+                      src={`http://localhost:8000/auth/profile-image/${user.id}`}
+                      alt={user.name || user.username}
+                      className="user-avatar"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const placeholder = target.nextElementSibling as HTMLElement;
+                        if (placeholder) placeholder.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="user-avatar-placeholder" style={{ display: user.id ? 'none' : 'flex' }}>
+                    {(user.name || user.username || 'U').charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* User Name */}
+                  <span className="user-name-text">
+                    {user.name || user.username}
+                  </span>
+
+                  {/* Dropdown Arrow */}
+                  <svg
+                    className={`user-dropdown-arrow ${isUserMenuOpen ? 'open' : ''}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
                   </svg>
-                  Dashboard
-                </Link>
-                <span className="user-greeting">Hi, {user?.username}</span>
-                <button onClick={() => { logout(); router.push('/'); }} className="logout-btn">
-                  Logout
                 </button>
-              </>
+
+                {/* Dropdown Menu */}
+                <div className={`user-dropdown-menu ${isUserMenuOpen ? 'open' : ''}`}>
+                  {/* User Info Header */}
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-name">{user.name || user.username}</div>
+                    <div className="user-dropdown-email">{user.email}</div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <Link href="/dashboard" className="user-dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="9" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="14" y="3" width="7" height="5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="14" y="12" width="7" height="9" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="3" y="16" width="7" height="5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Dashboard
+                  </Link>
+
+                  <Link href="/dashboard/settings" className="user-dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Settings
+                  </Link>
+
+                  <div className="user-dropdown-divider" />
+
+                  <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round"/>
+                      <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Logout
+                  </button>
+                </div>
+              </div>
             ) : (
               <>
                 <Link href="/signin" className="login-btn" onClick={handleNavClick}>
