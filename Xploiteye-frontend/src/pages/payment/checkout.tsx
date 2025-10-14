@@ -10,15 +10,25 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [formData, setFormData] = useState({
     customerName: '',
-    customerEmail: '',
-    customerMobile: '',
-    customerCNIC: '',
-    billingAddress: '',
-    billingCity: '',
-    billingPostalCode: ''
+    customerMobile: ''
   });
+
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Not logged in - redirect to signin with return URL
+      const returnUrl = `/payment/checkout?plan=${plan}&billing=${billing}`;
+      router.push(`/signin?redirect=${encodeURIComponent(returnUrl)}`);
+    } else {
+      setIsAuthenticated(true);
+      setCheckingAuth(false);
+    }
+  }, [plan, billing, router]);
 
   const planPrices: Record<string, {monthly: number, annual: number}> = {
     starter: { monthly: 1000, annual: 8000 },
@@ -43,15 +53,8 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
   };
 
   const validateForm = () => {
-    if (!formData.customerName || !formData.customerEmail || !formData.customerMobile) {
+    if (!formData.customerName || !formData.customerMobile) {
       setError('Please fill in all required fields');
-      return false;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.customerEmail)) {
-      setError('Please enter a valid email address');
       return false;
     }
 
@@ -60,15 +63,6 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
     if (!mobileRegex.test(formData.customerMobile)) {
       setError('Please enter a valid Pakistani mobile number');
       return false;
-    }
-
-    // CNIC validation (if provided)
-    if (formData.customerCNIC) {
-      const cnicRegex = /^[0-9]{5}-[0-9]{7}-[0-9]$/;
-      if (!cnicRegex.test(formData.customerCNIC)) {
-        setError('Please enter CNIC in format: 12345-1234567-1');
-        return false;
-      }
     }
 
     return true;
@@ -453,6 +447,26 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
     }
   `;
 
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <>
+        <style>{pageStyles}</style>
+        <div className="checkout-page">
+          <div className="checkout-bg-gradient"></div>
+          <div className="checkout-container" style={{ textAlign: 'center', paddingTop: '100px' }}>
+            <h2 style={{ color: '#00f078' }}>Checking authentication...</h2>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <>
       <style>{pageStyles}</style>
@@ -507,21 +521,6 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
 
                   <div className="form-group">
                     <label className="form-label">
-                      Email Address<span className="required">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      name="customerEmail"
-                      className="form-input"
-                      placeholder="your.email@example.com"
-                      value={formData.customerEmail}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">
                       Mobile Number<span className="required">*</span>
                     </label>
                     <input
@@ -532,64 +531,6 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
                       value={formData.customerMobile}
                       onChange={handleInputChange}
                       required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">
-                      CNIC Number (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="customerCNIC"
-                      className="form-input"
-                      placeholder="12345-1234567-1"
-                      value={formData.customerCNIC}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-
-                {/* Billing Address */}
-                <div className="form-section">
-                  <h3 className="section-title">
-                    <Lock className="section-icon" size={22} />
-                    Billing Address
-                  </h3>
-
-                  <div className="form-group">
-                    <label className="form-label">Address</label>
-                    <input
-                      type="text"
-                      name="billingAddress"
-                      className="form-input"
-                      placeholder="Street address, P.O. box"
-                      value={formData.billingAddress}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">City</label>
-                    <input
-                      type="text"
-                      name="billingCity"
-                      className="form-input"
-                      placeholder="City"
-                      value={formData.billingCity}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Postal Code</label>
-                    <input
-                      type="text"
-                      name="billingPostalCode"
-                      className="form-input"
-                      placeholder="54000"
-                      value={formData.billingPostalCode}
-                      onChange={handleInputChange}
                     />
                   </div>
                 </div>

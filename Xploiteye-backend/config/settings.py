@@ -62,6 +62,22 @@ class Settings(BaseSettings):
     gmail_app_password: str = Field(default="")
     default_from_email: str = Field(default="")
 
+    # PayFast Payment Gateway Configuration
+    payfast_merchant_id: str = Field(default="")
+    payfast_secured_key: str = Field(default="")
+    payfast_base_url: str = Field(default="https://ipguat.apps.net.pk/Ecommerce/api/Transaction")
+
+    # Application URLs
+    api_url: str = Field(default="http://localhost:8000")
+    app_url: str = Field(default="http://localhost:3000")
+
+    # Logging Configuration
+    log_level: str = Field(default="INFO")
+
+    # Rate Limiting Configuration
+    rate_limit_enabled: bool = Field(default=True)
+    payment_rate_limit_per_minute: int = Field(default=5)
+
     class Config:
         env_file = ".env"
         case_sensitive = False

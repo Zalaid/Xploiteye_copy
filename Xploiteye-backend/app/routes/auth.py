@@ -313,16 +313,29 @@ async def logout_user(
     summary="Initiate Google OAuth login",
     description="Redirect user to Google OAuth authorization page"
 )
-async def google_login():
+async def google_login(redirect: Optional[str] = None):
     """Initiate Google OAuth login"""
     try:
+        print(f"[OAuth] Google login initiated with redirect: {redirect}")
         oauth_service = GoogleOAuthService()
-        authorization_url = oauth_service.get_authorization_url()
-        
+
+        # Store redirect URL in OAuth state parameter if provided
+        if redirect:
+            import secrets
+            state_token = secrets.token_urlsafe(16)
+            from app.auth.session_store import store_temp_token
+            store_temp_token(f"oauth_redirect_{state_token}", redirect)
+            print(f"[OAuth] Stored redirect URL with state token: {state_token}")
+            authorization_url = oauth_service.get_authorization_url(state=state_token)
+        else:
+            print("[OAuth] No redirect URL provided")
+            authorization_url = oauth_service.get_authorization_url()
+
+        print(f"[OAuth] Authorization URL: {authorization_url}")
         # Redirect to Google OAuth
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=authorization_url)
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -336,10 +349,21 @@ async def google_login():
 )
 async def google_callback(
     code: str,
+    state: Optional[str] = None,
     user_service: UserService = Depends(get_user_service)
 ):
     """Handle Google OAuth callback"""
     try:
+        print(f"[OAuth] Callback received with state: {state}")
+        # Retrieve redirect URL from state if provided
+        redirect_url = None
+        if state:
+            from app.auth.session_store import get_temp_token
+            redirect_url = get_temp_token(f"oauth_redirect_{state}")
+            print(f"[OAuth] Retrieved redirect URL: {redirect_url}")
+        else:
+            print("[OAuth] No state parameter in callback")
+
         oauth_service = GoogleOAuthService()
         
         # Exchange code for tokens
@@ -410,8 +434,17 @@ async def google_callback(
         
         # Redirect to frontend with session token
         from fastapi.responses import RedirectResponse
-        dashboard_url = f"http://localhost:3000/auth/callback?session={session_token}"
-        return RedirectResponse(url=dashboard_url)
+        from urllib.parse import quote
+        # Use redirect URL if provided, otherwise go to dashboard
+        if redirect_url:
+            # URL encode the redirect URL to preserve query parameters
+            encoded_redirect = quote(redirect_url, safe='')
+            callback_url = f"http://localhost:3000/auth/callback?session={session_token}&redirect={encoded_redirect}"
+            print(f"[OAuth] Redirecting to: {callback_url}")
+        else:
+            callback_url = f"http://localhost:3000/auth/callback?session={session_token}"
+            print(f"[OAuth] Redirecting to dashboard: {callback_url}")
+        return RedirectResponse(url=callback_url)
         
     except Exception as e:
         print(f"[OAuth Error] Google callback failed: {type(e).__name__}: {str(e)}")

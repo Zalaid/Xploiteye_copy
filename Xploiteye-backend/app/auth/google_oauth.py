@@ -18,7 +18,7 @@ class GoogleOAuthService:
         self.client_secret = settings.google_client_secret
         self.redirect_uri = settings.google_redirect_uri
         
-    def get_authorization_url(self) -> str:
+    def get_authorization_url(self, state: Optional[str] = None) -> str:
         """Get Google OAuth authorization URL"""
         try:
             # Create flow instance
@@ -39,14 +39,19 @@ class GoogleOAuthService:
                 ]
             )
             flow.redirect_uri = self.redirect_uri
-            
-            authorization_url, state = flow.authorization_url(
-                access_type='offline',
-                include_granted_scopes='true'
-            )
-            
+
+            # Build authorization URL with optional state
+            auth_params = {
+                'access_type': 'offline',
+                'include_granted_scopes': 'true'
+            }
+            if state:
+                auth_params['state'] = state
+
+            authorization_url, _ = flow.authorization_url(**auth_params)
+
             return authorization_url
-            
+
         except Exception as e:
             raise Exception(f"Failed to generate authorization URL: {str(e)}")
     

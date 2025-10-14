@@ -12,6 +12,7 @@ from config.settings import settings
 from config.logging_config import setup_uvicorn_logging, log_meaningful_startup, log_meaningful_shutdown
 from app.database.mongodb import connect_to_mongo, close_mongo_connection
 from app.routes import auth, dashboard, mfa, scanning, cve, email_verification, password_reset
+from app.payment import payment_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +63,7 @@ app.include_router(mfa.router)
 app.include_router(dashboard.router)
 app.include_router(scanning.router)
 app.include_router(cve.router)
+app.include_router(payment_router)             # Payment routes
 
 # Root endpoint
 @app.get("/", tags=["Health"])

@@ -19,8 +19,8 @@ const AuthCallback = () => {
       }
 
       try {
-        const { session } = router.query;
-        
+        const { session, redirect } = router.query;
+
         if (!session || typeof session !== 'string') {
           throw new Error('No session token provided');
         }
@@ -28,6 +28,7 @@ const AuthCallback = () => {
         setIsProcessing(true);
 
         console.log('Session token received:', session);
+        console.log('Redirect URL:', redirect);
         setStatus('authenticating');
 
         // Add a small delay for better UX
@@ -55,19 +56,32 @@ const AuthCallback = () => {
         }
 
         const tokenData = await response.json();
-        
-        // Store the JWT token
-        localStorage.setItem('access_token', tokenData.access_token);
-        
+
+        // Store the JWT token (use 'token' key for consistency)
+        localStorage.setItem('token', tokenData.access_token);
+        localStorage.setItem('access_token', tokenData.access_token); // Keep for backward compatibility
+
         // Update auth context with new token
         await checkAuthStatus();
 
         setStatus('success');
         setShowSuccess(true);
-        
+
         // Wait for success animation then redirect
         setTimeout(() => {
-          router.push('/dashboard');
+          // Use redirect URL if provided, otherwise go to dashboard
+          let redirectUrl = '/dashboard';
+          if (redirect && typeof redirect === 'string') {
+            // Decode the redirect URL
+            try {
+              redirectUrl = decodeURIComponent(redirect);
+            } catch (e) {
+              console.error('Failed to decode redirect URL:', e);
+              redirectUrl = redirect;
+            }
+          }
+          console.log('Redirecting to:', redirectUrl);
+          router.push(redirectUrl);
         }, 2500);
 
       } catch (err) {

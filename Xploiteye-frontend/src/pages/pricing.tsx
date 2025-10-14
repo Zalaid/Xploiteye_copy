@@ -1,4 +1,5 @@
 import React, { FC, useState } from 'react';
+import { useRouter } from 'next/router';
 
 interface PricingPlan {
   id: string;
@@ -12,7 +13,18 @@ interface PricingPlan {
 }
 
 const Pricing: FC = () => {
+  const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+
+  const handlePlanSelect = (plan: PricingPlan) => {
+    if (plan.id === 'enterprise') {
+      // For enterprise, redirect to contact page
+      router.push('/contactus');
+    } else {
+      // For other plans, go to checkout
+      router.push(`/payment/checkout?plan=${plan.id}&billing=${billingCycle}`);
+    }
+  };
 
   const pricingPlans: PricingPlan[] = [
     {
@@ -559,6 +571,7 @@ const Pricing: FC = () => {
 
                 <button
                   className={`pricing-cta ${plan.highlighted ? 'primary' : 'secondary'}`}
+                  onClick={() => handlePlanSelect(plan)}
                 >
                   {plan.cta}
                 </button>

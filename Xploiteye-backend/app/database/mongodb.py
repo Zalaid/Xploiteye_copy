@@ -42,11 +42,29 @@ async def close_mongo_connection():
 async def create_indexes():
     """Create necessary database indexes"""
     try:
-        # Create unique index on email field
+        # User indexes
         await db.database.users.create_index("email", unique=True)
-        # Create unique index on username field
         await db.database.users.create_index("username", unique=True)
-        print(">> Created database indexes")
+
+        # Payment transaction indexes (separate collection)
+        await db.database.payment_transactions.create_index("basket_id", unique=True)
+        await db.database.payment_transactions.create_index("user_id")
+        await db.database.payment_transactions.create_index("transaction_id")
+        await db.database.payment_transactions.create_index([("user_id", 1), ("status", 1)])
+
+        # Subscription indexes (separate collection)
+        await db.database.subscriptions.create_index("user_id")
+        await db.database.subscriptions.create_index([("user_id", 1), ("status", 1)])
+
+        # Webhook indexes (separate collection)
+        await db.database.payment_webhooks.create_index("basket_id")
+        await db.database.payment_webhooks.create_index("transaction_id")
+
+        # Refund indexes (separate collection)
+        await db.database.payment_refunds.create_index("transaction_id")
+        await db.database.payment_refunds.create_index("user_id")
+
+        print(">> Created database indexes (including payment collections)")
     except Exception as e:
         print(f">> Index creation warning: {e}")
 

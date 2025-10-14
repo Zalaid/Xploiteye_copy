@@ -547,7 +547,9 @@ const Login: FC = () => {
             setMfaRequired(true);
             setShowMfaModal(true);
           } else {
-            router.push('/dashboard');
+            // Check for redirect URL
+            const redirectUrl = router.query.redirect as string;
+            router.push(redirectUrl || '/dashboard');
           }
         } else {
           setErrors({ general: result.error || 'Login failed. Please try again.' });
@@ -564,19 +566,32 @@ const Login: FC = () => {
     try {
       // Refresh auth context to update user state
       await checkAuthStatus();
-      
-      // Force redirect to dashboard
-      window.location.href = '/dashboard';
+
+      // Check for redirect URL
+      const redirectUrl = router.query.redirect as string;
+
+      // Force redirect
+      window.location.href = redirectUrl || '/dashboard';
     } catch (error) {
       console.error('Auth refresh failed:', error);
       // Fallback - force redirect
-      window.location.href = '/dashboard';
+      const redirectUrl = router.query.redirect as string;
+      window.location.href = redirectUrl || '/dashboard';
     }
   };
 
   const handleGoogleLogin = () => {
-    // Redirect to backend Google OAuth endpoint
-    window.location.href = 'http://localhost:8000/auth/google/login';
+    // Get redirect URL from query params
+    const redirectUrl = router.query.redirect as string;
+
+    // Pass redirect URL to backend OAuth endpoint via state parameter
+    const backendUrl = 'http://localhost:8000/auth/google/login';
+    if (redirectUrl) {
+      // Encode redirect URL and pass it as state
+      window.location.href = `${backendUrl}?redirect=${encodeURIComponent(redirectUrl)}`;
+    } else {
+      window.location.href = backendUrl;
+    }
   };
 
   // Handle MFA required from Google OAuth redirect
