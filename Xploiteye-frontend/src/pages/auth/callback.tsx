@@ -57,9 +57,8 @@ const AuthCallback = () => {
 
         const tokenData = await response.json();
 
-        // Store the JWT token (use 'token' key for consistency)
+        // Store the JWT token
         localStorage.setItem('token', tokenData.access_token);
-        localStorage.setItem('access_token', tokenData.access_token); // Keep for backward compatibility
 
         // Update auth context with new token
         await checkAuthStatus();

@@ -25,11 +25,17 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      // Check for token in both keys (token and access_token)
+      // Check for token (also check access_token for migration from old key)
       const token = localStorage.getItem('token') || localStorage.getItem('access_token');
       if (!token) {
         setLoading(false);
         return;
+      }
+
+      // Migrate old access_token to token if needed
+      if (!localStorage.getItem('token') && localStorage.getItem('access_token')) {
+        localStorage.setItem('token', token);
+        localStorage.removeItem('access_token');
       }
 
       // Verify token with backend
@@ -170,9 +176,8 @@ export const AuthProvider = ({ children }) => {
           };
         }
 
-        // Normal login - store JWT token in both keys for consistency
+        // Normal login - store JWT token
         localStorage.setItem('token', data.access_token);
-        localStorage.setItem('access_token', data.access_token);
 
         // Get user info
         await checkAuthStatus();
@@ -195,7 +200,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       if (token) {
         // Call backend logout endpoint
         await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -211,8 +216,8 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Clear local state regardless of backend response
       localStorage.removeItem('token');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user'); // Also remove any stored user data
+      localStorage.removeItem('access_token'); // Remove old key if it exists
+      localStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
     }
@@ -237,7 +242,7 @@ export const AuthProvider = ({ children }) => {
 
   // API helper function for authenticated requests
   const apiCall = async (endpoint, options = {}) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    const token = localStorage.getItem('token');
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
@@ -262,7 +267,7 @@ export const AuthProvider = ({ children }) => {
         const data = await response.json();
         if (data.detail?.includes('Session expired')) {
           localStorage.removeItem('token');
-          localStorage.removeItem('access_token');
+          localStorage.removeItem('access_token'); // Remove old key if it exists
           localStorage.removeItem('user');
           setIsAuthenticated(false);
           setUser(null);

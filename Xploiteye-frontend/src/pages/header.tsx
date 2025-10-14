@@ -430,6 +430,56 @@ export default function Header() {
           transform: rotate(180deg);
         }
 
+        /* Hide name and arrow on mobile */
+        @media (max-width: 500px) {
+          .user-name-text {
+            display: none;
+          }
+
+          .user-dropdown-arrow {
+            display: none;
+          }
+
+          .user-profile-button {
+            padding: 4px;
+            min-width: auto;
+            gap: 0;
+          }
+
+          .user-avatar,
+          .user-avatar-placeholder {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .user-avatar,
+          .user-avatar-placeholder {
+            width: 30px;
+            height: 30px;
+            font-size: 13px;
+          }
+
+          .user-profile-button {
+            padding: 3px;
+          }
+        }
+
+        @media (max-width: 300px) {
+          .user-avatar,
+          .user-avatar-placeholder {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+          }
+
+          .user-profile-button {
+            padding: 2px;
+          }
+        }
+
         .user-dropdown-menu {
           position: absolute;
           top: calc(100% + 10px);
@@ -517,7 +567,97 @@ export default function Header() {
           background: rgba(255, 107, 107, 0.1);
           color: #ff4444;
         }
-        
+
+        /* Responsive dropdown adjustments */
+        @media (max-width: 500px) {
+          .user-dropdown-menu {
+            min-width: 220px;
+            right: -10px;
+            left: auto;
+          }
+
+          .user-dropdown-header {
+            padding: 12px;
+          }
+
+          .user-dropdown-name {
+            font-size: 0.9rem;
+          }
+
+          .user-dropdown-email {
+            font-size: 0.75rem;
+          }
+
+          .user-dropdown-item {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+          }
+
+          .user-dropdown-item svg {
+            width: 16px;
+            height: 16px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .user-dropdown-menu {
+            min-width: 200px;
+            right: -15px;
+          }
+
+          .user-dropdown-header {
+            padding: 10px;
+          }
+
+          .user-dropdown-name {
+            font-size: 0.85rem;
+          }
+
+          .user-dropdown-email {
+            font-size: 0.7rem;
+          }
+
+          .user-dropdown-item {
+            padding: 9px 12px;
+            font-size: 0.8rem;
+          }
+
+          .user-dropdown-item svg {
+            width: 14px;
+            height: 14px;
+          }
+        }
+
+        @media (max-width: 300px) {
+          .user-dropdown-menu {
+            min-width: 180px;
+            right: -20px;
+          }
+
+          .user-dropdown-header {
+            padding: 8px;
+          }
+
+          .user-dropdown-name {
+            font-size: 0.8rem;
+          }
+
+          .user-dropdown-email {
+            font-size: 0.65rem;
+          }
+
+          .user-dropdown-item {
+            padding: 8px 10px;
+            font-size: 0.75rem;
+            gap: 8px;
+          }
+
+          .user-dropdown-item svg {
+            width: 12px;
+            height: 12px;
+          }
+        }
+
         .signup-btn {
           z-index: 5;
           background-color: #31ff94;
@@ -657,11 +797,22 @@ export default function Header() {
             justify-content: space-between;
             gap: 0;
           }
-          
+
           .logo-section {
             flex: 0 0 auto;
             z-index: 1001;
             position: relative;
+          }
+
+          .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            order: 2;
+          }
+
+          .user-profile-container {
+            margin-right: 0;
           }
           
           .nav-section {
@@ -728,10 +879,55 @@ export default function Header() {
           
           .header__menu-toggle {
             display: flex;
-            margin-left: 0.75rem;
+            margin-left: 0;
             order: 3;
             z-index: 10000;
             position: relative;
+          }
+        }
+
+        @media (max-width: 500px) {
+          .auth-section {
+            gap: 6px;
+          }
+
+          .header__menu-toggle {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header__menu-toggle-line {
+            width: 18px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .auth-section {
+            gap: 4px;
+          }
+
+          .header__menu-toggle {
+            width: 38px;
+            height: 38px;
+          }
+
+          .header__menu-toggle-line {
+            width: 16px;
+          }
+        }
+
+        @media (max-width: 300px) {
+          .auth-section {
+            gap: 2px;
+          }
+
+          .header__menu-toggle {
+            width: 36px;
+            height: 36px;
+          }
+
+          .header__menu-toggle-line {
+            width: 14px;
           }
         }
         
