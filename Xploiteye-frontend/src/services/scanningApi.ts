@@ -79,7 +79,7 @@ class ScanningApiService {
    */
   async getResultsDirectFallback(scanId: string): Promise<DirectScanResult> {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) {
         throw new Error('No authentication token found')
       }

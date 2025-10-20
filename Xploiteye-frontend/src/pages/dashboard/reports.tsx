@@ -60,7 +60,7 @@ export function ReportsPage() {
 
   const loadReportsData = async () => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       console.log('Loading reports with token:', token ? 'Token present' : 'No token')
 
       // Load available PDF reports
@@ -91,7 +91,7 @@ export function ReportsPage() {
 
   const handleDownload = async (filename: string) => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       console.log('Downloading report:', filename)
       console.log('Using token:', token ? 'Token present' : 'No token')
 
@@ -130,7 +130,7 @@ export function ReportsPage() {
 
   const handleGenerateReport = async (scanId: string, target: string) => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/scanning/generate-report', {
         method: 'POST',
         headers: {

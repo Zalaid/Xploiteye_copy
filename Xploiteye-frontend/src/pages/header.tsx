@@ -13,6 +13,13 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated, user, logout } = useAuth();
 
+  // Get first 2 words of name for display
+  const getDisplayName = (fullName: string | undefined) => {
+    if (!fullName) return '';
+    const words = fullName.trim().split(/\s+/);
+    return words.slice(0, 2).join(' ');
+  };
+
   // Handle scroll effect for header shadow and visibility
   useEffect(() => {
     const handleScroll = () => {
@@ -1072,7 +1079,7 @@ export default function Header() {
 
                   {/* User Name */}
                   <span className="user-name-text">
-                    {user.name || user.username}
+                    {getDisplayName(user.name || user.username)}
                   </span>
 
                   {/* Dropdown Arrow */}

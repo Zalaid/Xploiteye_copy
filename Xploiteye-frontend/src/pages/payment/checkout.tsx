@@ -19,7 +19,7 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
 
   // Check authentication on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     if (!token) {
       // Not logged in - redirect to signin with return URL
       const returnUrl = `/payment/checkout?plan=${plan}&billing=${billing}`;
@@ -82,7 +82,7 @@ const PaymentCheckout: FC<CheckoutProps> = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}`
         },
         body: JSON.stringify({
           plan: plan,

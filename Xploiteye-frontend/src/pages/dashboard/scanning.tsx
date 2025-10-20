@@ -779,7 +779,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     console.log(`🟡 [IP CHECK UI] Set isCheckingIP=true, showing yellow overlay`)
 
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       console.log(`🟡 [IP CHECK API] Calling backend check-ip endpoint for: ${targetIP}`)
 
       const response = await fetch('http://localhost:8000/scanning/check-ip', {
@@ -923,7 +923,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
   const generateReport = async (scanId: string) => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/scanning/generate-report', {
         method: 'POST',
         headers: {
@@ -1362,7 +1362,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     console.log(`Launching ${scanType} scan on ${targetInput}`)
 
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/scanning/start', {
         method: 'POST',
         headers: {
@@ -1483,7 +1483,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     }
 
     setIsPolling(true)
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     let shouldContinuePolling = true
     let pollCount = 0
 
@@ -1983,7 +1983,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
   // Store CVEs from scan results
   const storeCVEsFromScan = async (scanId: string, vulnerabilities: any[]) => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/scanning/store-cves', {
         method: 'POST',
         headers: {

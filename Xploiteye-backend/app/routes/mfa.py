@@ -177,7 +177,7 @@ async def disable_mfa(
     user_service: UserService = Depends(get_user_service)
 ):
     """
-    Disable MFA (requires password + TOTP confirmation)
+    Disable MFA (requires TOTP confirmation, password optional)
     """
     try:
         if not current_user.mfa_enabled:
@@ -185,30 +185,31 @@ async def disable_mfa(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="MFA is not enabled for this account"
             )
-        
-        # Verify password
-        if not await user_service.verify_password(current_user.email, disable_request.current_password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid password"
-            )
-        
-        # Verify TOTP code
+
+        # Verify password if provided
+        if disable_request.current_password:
+            if not await user_service.verify_password(current_user.email, disable_request.current_password):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid password"
+                )
+
+        # Verify TOTP code (required)
         if not mfa_utils.verify_totp_code(current_user.mfa_secret, disable_request.totp_code):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid TOTP code"
             )
-        
+
         # Disable MFA
         success = await user_service.disable_mfa(current_user.email)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to disable MFA"
             )
-        
+
         return MessageResponse(message="MFA disabled successfully")
     
     except HTTPException as e:

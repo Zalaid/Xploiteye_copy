@@ -124,7 +124,7 @@ class MFAVerifyRequest(BaseModel):
 
 class MFADisableRequest(BaseModel):
     """MFA disable request"""
-    current_password: str = Field(..., description="Current password")
+    current_password: Optional[str] = Field(None, description="Current password (optional if MFA is enabled)")
     totp_code: str = Field(..., min_length=6, max_length=6, description="6-digit TOTP code")
 
 class RecoveryCodeRequest(BaseModel):

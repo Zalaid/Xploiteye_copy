@@ -59,7 +59,7 @@ export function MfaVerificationModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) {
         toast({
           title: 'Error',

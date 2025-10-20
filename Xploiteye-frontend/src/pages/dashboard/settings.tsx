@@ -204,8 +204,11 @@ export function SettingsPage() {
   useEffect(() => {
     const loadMfaStatus = async () => {
       try {
-        const token = localStorage.getItem('access_token')
-        if (!token) return
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+        if (!token) {
+          setMfaStatus(prev => ({ ...prev, loading: false }))
+          return
+        }
 
         const response = await fetch('http://localhost:8000/mfa/status', {
           headers: {
@@ -232,6 +235,9 @@ export function SettingsPage() {
 
     if (user?.id) {
       loadMfaStatus()
+    } else {
+      // Stop loading if no user
+      setMfaStatus(prev => ({ ...prev, loading: false }))
     }
   }, [user?.id])
   const [notifications, setNotifications] = useState({
@@ -287,7 +293,7 @@ export function SettingsPage() {
 
   const uploadImageToBackend = async (file: File): Promise<boolean> => {
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) {
         toast({
           title: "Error",
@@ -357,7 +363,7 @@ export function SettingsPage() {
   const handleSaveProfile = async () => {
     setIsLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) {
         toast({
           title: "Error",
@@ -512,7 +518,7 @@ export function SettingsPage() {
 
     setIsLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) {
         toast({
           title: "Error",

@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { XCircle, RefreshCw, Home, HelpCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -10,6 +10,11 @@ const PaymentFailure: FC<PaymentFailureProps> = () => {
   const { err_code, err_msg, basket_id, transaction_id } = router.query;
 
   const [contacting, setContacting] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Error code mapping
   const getErrorDetails = (code: string) => {
@@ -383,8 +388,22 @@ const PaymentFailure: FC<PaymentFailureProps> = () => {
                 )}
 
                 <div className="error-item">
-                  <div className="error-label">Date & Time</div>
-                  <div className="error-value">{new Date().toLocaleString()}</div>
+                  <div className="error-label">Date & Time (PKT)</div>
+                  <div className="error-value">
+                    {mounted
+                      ? new Date().toLocaleString('en-PK', {
+                          timeZone: 'Asia/Karachi',
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true
+                        })
+                      : '--'
+                    }
+                  </div>
                 </div>
               </div>
             )}

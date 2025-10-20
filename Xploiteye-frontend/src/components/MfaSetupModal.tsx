@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -15,11 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { 
-  Shield, 
-  Smartphone, 
-  Copy, 
-  CheckCircle, 
+import {
+  Shield,
+  Smartphone,
+  Copy,
+  CheckCircle,
   XCircle,
   AlertTriangle,
   Download,
@@ -59,6 +60,8 @@ export function MfaSetupModal({
   const [secretCopied, setSecretCopied] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false)
+  const [disableTotpCode, setDisableTotpCode] = useState('')
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -69,42 +72,77 @@ export function MfaSetupModal({
       setSecretCopied(false)
       setRecoveryCodesCopied(false)
       setShowRegenerateConfirm(false)
+      setShowDisableConfirm(false)
+      setDisableTotpCode('')
     }
   }, [isOpen, mfaStatus.enabled])
+
+  // Ensure only one confirmation dialog is open at a time
+  useEffect(() => {
+    if (showDisableConfirm) {
+      setShowRegenerateConfirm(false)
+    }
+  }, [showDisableConfirm])
+
+  useEffect(() => {
+    if (showRegenerateConfirm) {
+      setShowDisableConfirm(false)
+    }
+  }, [showRegenerateConfirm])
 
   const initiateMfaSetup = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      // Check both token keys for compatibility
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      console.log('Token found:', token ? 'Yes' : 'No')
+
       if (!token) {
         toast({
-          title: 'Error',
-          description: 'Please login again',
+          title: 'Authentication Required',
+          description: 'Please log in to enable Two-Factor Authentication',
           variant: 'destructive'
         })
+        setLoading(false)
         return
       }
 
+      console.log('Initiating MFA setup...')
       const response = await fetch('http://localhost:8000/mfa/setup/initiate', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       })
 
+      console.log('Response status:', response.status)
+
       if (response.ok) {
         const data = await response.json()
+        console.log('Setup data received successfully')
         setSetupData(data)
         setStep('setup')
       } else {
         const error = await response.json()
-        toast({
-          title: 'Setup Failed',
-          description: error.detail || 'Failed to initiate MFA setup',
-          variant: 'destructive'
-        })
+        console.error('Setup failed:', error)
+
+        if (response.status === 401) {
+          toast({
+            title: 'Session Expired',
+            description: 'Please log out and log in again',
+            variant: 'destructive'
+          })
+        } else {
+          toast({
+            title: 'Setup Failed',
+            description: error.detail || 'Failed to initiate MFA setup',
+            variant: 'destructive'
+          })
+        }
       }
     } catch (error) {
+      console.error('Network error:', error)
       toast({
         title: 'Error',
         description: 'Network error. Please try again.',
@@ -127,7 +165,7 @@ export function MfaSetupModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/mfa/setup/complete', {
         method: 'POST',
         headers: {
@@ -172,17 +210,67 @@ export function MfaSetupModal({
   }
 
   const disableMfa = async () => {
-    // This would need to be implemented with proper verification
-    toast({
-      title: 'Feature Coming Soon',
-      description: 'MFA disable functionality will be implemented in the next update',
-    })
+    if (!disableTotpCode || disableTotpCode.length !== 6) {
+      toast({
+        title: 'Invalid Code',
+        description: 'Please enter a valid 6-digit verification code',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const response = await fetch('http://localhost:8000/mfa/disable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          totp_code: disableTotpCode
+        })
+      })
+
+      if (response.ok) {
+        toast({
+          title: 'Success!',
+          description: 'Two-Factor Authentication has been disabled',
+        })
+        // Update parent component's MFA status
+        onMfaStatusChange({
+          enabled: false,
+          setupComplete: false,
+          recoveryCodes: 0,
+          loading: false
+        })
+        setShowDisableConfirm(false)
+        setDisableTotpCode('')
+        onClose()
+      } else {
+        const error = await response.json()
+        toast({
+          title: 'Disable Failed',
+          description: error.detail || 'Invalid verification code. Please try again.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Network error. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const regenerateRecoveryCodes = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const response = await fetch('http://localhost:8000/mfa/recovery/regenerate', {
         method: 'POST',
         headers: {
@@ -286,19 +374,25 @@ export function MfaSetupModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2 text-green-400">
-            <Shield className="w-5 h-5" />
-            <span>Two-Factor Authentication</span>
-          </DialogTitle>
-          <DialogDescription className="text-gray-300">
-            {step === 'manage' ? 'Manage your 2FA settings' : 'Secure your account with 2FA'}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent
+          className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700"
+          style={{
+            visibility: (showDisableConfirm || showRegenerateConfirm) ? 'hidden' : 'visible'
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-green-400">
+              <Shield className="w-5 h-5" />
+              <span>Two-Factor Authentication</span>
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              {step === 'manage' ? 'Manage your 2FA settings' : 'Secure your account with 2FA'}
+            </DialogDescription>
+          </DialogHeader>
 
-        <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait">
           {/* Initial Setup Step */}
           {step === 'init' && (
             <motion.div
@@ -604,16 +698,22 @@ export function MfaSetupModal({
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => setShowRegenerateConfirm(true)}
+                  onClick={() => {
+                    console.log('Regenerate button clicked')
+                    setShowRegenerateConfirm(true)
+                  }}
                   disabled={loading}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Regenerate Recovery Codes
+                  Get New Recovery Codes
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full text-red-400 border-red-500/30 hover:bg-red-500/10"
-                  onClick={disableMfa}
+                  onClick={() => {
+                    console.log('Disable button clicked')
+                    setShowDisableConfirm(true)
+                  }}
                 >
                   <XCircle className="w-4 h-4 mr-2" />
                   Disable 2FA
@@ -621,37 +721,63 @@ export function MfaSetupModal({
               </div>
             </motion.div>
           )}
+        </AnimatePresence>
+      </DialogContent>
+    </Dialog>
 
-          {/* Regeneration Confirmation Dialog */}
-          {showRegenerateConfirm && (
+      {/* Regeneration Confirmation Dialog - Rendered outside Dialog using Portal */}
+      {showRegenerateConfirm && !showDisableConfirm && typeof window !== 'undefined' && createPortal(
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowRegenerateConfirm(false)
+                }
+              }}
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="bg-gray-800 border border-yellow-500/50 rounded-lg p-6 max-w-sm w-full"
+                className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/40 rounded-xl shadow-2xl p-6 max-w-md w-full"
+                onClick={(e) => e.stopPropagation()}
               >
-                <div className="text-center">
-                  <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-yellow-400 mb-2">Regenerate Recovery Codes?</h3>
-                  <p className="text-sm text-gray-300 mb-4">
-                    This will generate new recovery codes and invalidate your current ones. 
-                    Make sure to download and save the new codes immediately.
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-yellow-500/10">
+                    <RefreshCw className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">Get New Recovery Codes</h3>
+                  <p className="text-sm text-gray-400">
+                    Generate a fresh set of 10 backup codes
                   </p>
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-yellow-200">
-                      <strong>Warning:</strong> Your old recovery codes will no longer work after this action.
-                    </p>
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-start space-x-3">
+                    <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-yellow-300">What happens:</p>
+                      <ul className="text-xs text-yellow-200/80 space-y-1 list-disc list-inside">
+                        <li>You'll get 10 brand new recovery codes</li>
+                        <li>Your old codes will stop working immediately</li>
+                        <li>Download and save the new codes safely</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
-                <div className="flex space-x-3">
+
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-6">
+                  <p className="text-xs text-blue-200/80">
+                    <strong className="text-blue-300">💡 When to use:</strong> If you've used up codes or think they're compromised
+                  </p>
+                </div>
+                <div className="flex gap-3">
                   <Button
                     variant="outline"
                     onClick={() => setShowRegenerateConfirm(false)}
-                    className="flex-1"
+                    className="flex-1 border-gray-700 hover:bg-gray-800"
+                    disabled={loading}
                   >
                     Cancel
                   </Button>
@@ -660,17 +786,132 @@ export function MfaSetupModal({
                       setShowRegenerateConfirm(false)
                       regenerateRecoveryCodes()
                     }}
-                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold"
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold shadow-lg shadow-yellow-500/20"
                     disabled={loading}
                   >
-                    {loading ? 'Generating...' : 'Regenerate'}
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin mr-2" />
+                        Generating...
+                      </>
+                    ) : (
+                      'Generate New Codes'
+                    )}
                   </Button>
                 </div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </DialogContent>
-    </Dialog>
+            </motion.div>,
+        document.body
+      )}
+
+      {/* Disable MFA Confirmation Dialog - Rendered outside Dialog using Portal */}
+      {showDisableConfirm && typeof window !== 'undefined' && createPortal(
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]"
+              style={{ pointerEvents: 'auto' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (e.target === e.currentTarget) {
+                  setShowDisableConfirm(false)
+                  setDisableTotpCode('')
+                }
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-gray-800 to-gray-900 border border-red-500/30 rounded-xl shadow-2xl p-6 max-w-md w-full relative"
+                style={{ pointerEvents: 'auto' }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {/* Header with Icon */}
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-red-500/10">
+                    <Shield className="w-8 h-8 text-red-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">Disable 2FA</h3>
+                  <p className="text-sm text-gray-400">
+                    Enter your authenticator code to confirm
+                  </p>
+                </div>
+
+                {/* Warning Card */}
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-start space-x-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-red-300">Security Warning</p>
+                      <p className="text-xs text-red-200/80">
+                        Disabling 2FA will remove extra protection from your account and delete all recovery codes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Verification Code Input */}
+                <div className="space-y-3 mb-6">
+                  <Label htmlFor="disable-totp-code" className="text-sm font-medium text-gray-300">
+                    Authenticator Code
+                  </Label>
+                  <Input
+                    id="disable-totp-code"
+                    type="text"
+                    value={disableTotpCode}
+                    onChange={(e) => setDisableTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                    }}
+                    onFocus={(e) => e.stopPropagation()}
+                    placeholder="000000"
+                    className="text-center text-3xl font-mono tracking-[0.5em] bg-gray-900/50 border-gray-700 focus:border-red-500 focus:ring-red-500/20 h-14"
+                    maxLength={6}
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500 text-center">
+                    Open your authenticator app and enter the 6-digit code
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDisableConfirm(false)
+                      setDisableTotpCode('')
+                    }}
+                    className="flex-1 border-gray-700 hover:bg-gray-800"
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={disableMfa}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg shadow-red-500/20"
+                    disabled={loading || disableTotpCode.length !== 6}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Disabling...
+                      </>
+                    ) : (
+                      'Disable 2FA'
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>,
+        document.body
+      )}
+    </>
   )
 }
