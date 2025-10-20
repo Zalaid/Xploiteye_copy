@@ -262,51 +262,44 @@ export function ScanningModule() {
   const startProgressAnimation = (scanType: string) => {
     console.log(`🎬 [PROGRESS] Starting animation for ${scanType} scan`)
 
-    // Simple progress animation - no complex tab management
-    console.log(`🆕 [PROGRESS] Starting animation for ${scanType} scan`)
+    // IMPORTANT: Don't use local animation - only use Global Progress Manager
+    // Local animation conflicts with global manager causing progress jumps
+    console.log(`🆕 [PROGRESS] Using Global Progress Manager only (no local animation)`)
 
-    let startProgress = scanProgress || 0
+    // Reset progress to 0
+    setScanProgress(0)
 
-      // Clear any existing interval
-      if (progressInterval) {
-        clearInterval(progressInterval)
+    // Clear any existing interval
+    if (progressInterval) {
+      clearInterval(progressInterval)
+      setProgressInterval(null)
+    }
+
+    // Create interval to sync from global progress manager
+    const interval = setInterval(() => {
+      if (!currentScanId) {
+        console.log(`⚠️ [PROGRESS] No scan ID, stopping sync`)
+        clearInterval(interval)
+        setProgressInterval(null)
+        return
       }
 
-      const waitTime = getProgressWaitTime(scanType)
+      // Get progress from global manager (single source of truth)
+      const globalProgress = globalProgressManager.getCurrentProgress(currentScanId)
 
-      // Only start animation if progress is below 95%
-      if (startProgress < 95) {
-        // Calculate remaining progress and time
-        const remainingProgress = 95 - startProgress
-        const elapsedTime = (startProgress / 95) * waitTime
-        const remainingTime = Math.max(waitTime - elapsedTime, 1000) // At least 1 second
+      if (globalProgress > 0) {
+        setScanProgress(globalProgress)
+      }
 
-        console.log(`⏱️ [PROGRESS] Animation timing: ${remainingProgress}% over ${remainingTime}ms`)
-
-        // Update progress every 500ms until we reach 95%
-        const interval = setInterval(() => {
-          setScanProgress(prev => {
-            const increment = (remainingProgress / (remainingTime / 500))
-            const newProgress = prev + increment
-
-            if (newProgress >= 95) {
-              clearInterval(interval)
-              setProgressInterval(null)
-              // Stop at 95% and wait for backend completion
-              return 95 // Stop at 95% and wait for backend completion
-            }
-
-            // Progress updated
-            return newProgress
-          })
-        }, 500)
-
-        setProgressInterval(interval)
-      } else {
-        console.log(`✅ [PROGRESS] Already at 95%+, no animation needed`)
+      // Stop syncing at 95% (wait for backend)
+      if (globalProgress >= 95) {
+        console.log(`✅ [PROGRESS] Reached 95%, stopping sync`)
+        clearInterval(interval)
         setProgressInterval(null)
       }
+    }, 500)
 
+    setProgressInterval(interval)
   }
 
   // Stop progress animation and cleanup
@@ -393,13 +386,13 @@ class GlobalProgressManager {
     console.log(`🌐 [GLOBAL] Starting global progress for scan ${scanId}`)
     this.isRunning = true
 
-    // Get scan duration based on scan type
+    // Get scan duration based on scan type (how long to reach 95%)
     const getScanDuration = (type: string): number => {
       switch (type) {
-        case 'light': return 45  // 45 seconds
-        case 'medium': return 180 // 3 minutes
-        case 'deep': return 600   // 10 minutes
-        default: return 45
+        case 'light': return 43  // 43 seconds
+        case 'medium': return 50 // 50 seconds
+        case 'deep': return 130   // 130 seconds
+        default: return 43
       }
     }
 
@@ -692,7 +685,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         switch (type) {
           case 'light': return 25 // 25 seconds
           case 'medium': return 45 // 45 seconds
-          case 'deep': return 90 // 90 seconds
+          case 'deep': return 130 // 130 seconds
           default: return 25
         }
       }
@@ -1013,7 +1006,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     switch (scanType) {
       case 'light': return 60000 // 60 seconds
       case 'medium': return 150000 // 2.5 minutes
-      case 'deep': return 210000 // 3.5 minutes
+      case 'deep': return 180000 // 3 minutes (130s + buffer)
       default: return 60000
     }
   }
@@ -1966,9 +1959,22 @@ const globalProgressManager = GlobalProgressManager.getInstance()
           loadCVEs(targetInput)
         }
       } catch (error) {
-        console.error(`❌ [POLLING] Error fetching scan status for ${scanId}:`, error)
-        console.log('🔄 Continuing polling after error...')
-        setTimeout(poll, 5000) // Continue polling
+        // Check if this is a VPN-related network error (common during IP switching)
+        const isNetworkError = error instanceof TypeError &&
+                              (error.message.includes('fetch') ||
+                               error.message.includes('NetworkError') ||
+                               error.message.includes('Failed to fetch'))
+
+        if (isNetworkError) {
+          // Silently handle VPN switching - just log to console for debugging
+          console.log('🔄 [POLLING] Network interrupted (likely VPN switch), retrying...')
+        } else {
+          // Log other errors normally
+          console.error(`❌ [POLLING] Error fetching scan status for ${scanId}:`, error)
+        }
+
+        // Continue polling regardless of error type
+        setTimeout(poll, 3000) // Retry faster (3s) after network errors
       }
     }
 
@@ -3078,10 +3084,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                   <div className="text-gray-500 text-sm">Run a scan to discover vulnerabilities</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {foundCVEs.map((cve) => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" key={`cve-grid-${scanGeneration}`}>
+                  {foundCVEs.map((cve, index) => (
                     <motion.div
-                      key={cve.id}
+                      key={`${scanGeneration}-${cve.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="border-2 border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"

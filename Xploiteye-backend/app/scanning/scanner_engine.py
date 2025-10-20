@@ -464,12 +464,17 @@ def execute_vpn_command(command_args):
     # The true IP is now passed as the final argument
     cmd = ["python3", VPN_CONTROLLER_SCRIPT] + command_args + [TRUE_PUBLIC_IP]
     try:
-        subprocess.run(cmd, check=True, timeout=180, capture_output=True, text=True)
+        result = subprocess.run(cmd, check=True, timeout=180, capture_output=True, text=True)
+        # Log VPN output for debugging
+        if result.stdout:
+            logging.info(f"VPN script output: {result.stdout}")
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         logging.error(f"VPN script failed! Command: {' '.join(cmd)}")
         if hasattr(e, 'stderr'):
-            logging.error(f"VPN script output:\n{e.stderr or e.stdout}")
+            logging.error(f"VPN script stderr:\n{e.stderr}")
+        if hasattr(e, 'stdout'):
+            logging.error(f"VPN script stdout:\n{e.stdout}")
         return False
 
 def handle_rate_limit():
@@ -481,12 +486,44 @@ def handle_rate_limit():
     request_count = 0
     cycle_index += 1
     if cycle_index >= len(VPN_CYCLE_PLAN):
+        print("\n" + "="*80)
+        print("🔌 VPN CYCLE FINISHED - DISCONNECTING VPN")
+        print("="*80)
         logging.info("VPN cycle finished. Disconnecting.")
         cycle_index = -1
-        return execute_vpn_command(["disconnect"])
+        vpn_success = execute_vpn_command(["disconnect"])
+        if vpn_success:
+            try:
+                current_ip = subprocess.run(["curl", "-s", "--max-time", "5", "api.ipify.org"],
+                                          capture_output=True, text=True, timeout=10).stdout.strip()
+                print(f"✅ DISCONNECTED - Current IP: {current_ip}")
+                print("="*80 + "\n")
+            except:
+                pass
+        return vpn_success
     next_region = VPN_CYCLE_PLAN[cycle_index]
+    print("\n" + "="*80)
+    print(f"🔄 VPN SWITCHING - Connecting to Region: {next_region}")
+    print("="*80)
     logging.info(f"Connecting to next in cycle: Region {next_region}...")
-    return execute_vpn_command(["connect", next_region])
+    vpn_success = execute_vpn_command(["connect", next_region])
+
+    if vpn_success:
+        # Get new IP and display
+        try:
+            new_ip = subprocess.run(["curl", "-s", "--max-time", "5", "api.ipify.org"],
+                                   capture_output=True, text=True, timeout=10).stdout.strip()
+            print(f"✅ CONNECTED - New IP: {new_ip}")
+        except:
+            print("✅ CONNECTED - IP check failed")
+        print("⏳ Waiting 5 seconds for network to stabilize...")
+        print("="*80 + "\n")
+        # Wait for VPN connection to fully stabilize before resuming API calls
+        logging.info("✅ VPN connected successfully. Waiting 5 seconds for network to stabilize...")
+        time.sleep(5)
+        logging.info("🔄 Network stabilized. Resuming CVE lookups.")
+
+    return vpn_success
 
 def run_vulnx_search_with_retry(query):
     """Run vulnx search with retry logic."""
@@ -733,6 +770,7 @@ async def cve_vulnerability_lookup(services_list: list) -> dict:
             os.makedirs(result_folder, exist_ok=True)
 
             # Save results to .txt file in result folder with scan-specific naming
+            output_file = None
             if all_results:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 # Use scan_id for unique naming - will be set in report formatting
@@ -753,14 +791,17 @@ async def cve_vulnerability_lookup(services_list: list) -> dict:
                     logging.info(f"✍️ CVE results saved to: {output_file}")
                 except Exception as e:
                     logging.error(f"Failed to save CVE results to file: {e}")
+                    # Still set txt_file_path to None explicitly on failure
+                    txt_file_path = None
+                    output_file = None
 
             return {
-                "status": "success",
+                "status": "success" if all_results else "partial",
                 "data": {
                     "vulnerabilities_found": len(all_results),
-                    "detailed_results": "".join(all_results),
+                    "detailed_results": "".join(all_results) if all_results else "",
                     "processing_time": total_time,
-                    "output_file": output_file if all_results else None
+                    "output_file": output_file
                 }
             }
 
@@ -1545,7 +1586,9 @@ Return complete valid JSON:
 
         # Enhance the .txt file with JSON data for PDF generation
         global txt_file_path
-        if txt_file_path and os.path.exists(txt_file_path):
+
+        # Only process txt file if it exists and is valid
+        if txt_file_path is not None and isinstance(txt_file_path, str) and os.path.exists(txt_file_path):
             try:
                 # Read existing CVE content
                 with open(txt_file_path, "r", encoding="utf-8") as f:

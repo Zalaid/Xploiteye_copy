@@ -25,16 +25,32 @@ def get_current_ip():
 
 def wait_for_ip_revert(target_ip, max_wait=20):
     logger.info(f"Forcefully disconnecting... Waiting for IP to revert to {target_ip}")
+
+    # Kill all OpenVPN processes aggressively
     subprocess.run(["sudo", "pkill", "-9", "-f", "openvpn"], capture_output=True)
-    time.sleep(0.5)
-    subprocess.run(["sudo", "ip", "link", "delete", "tun0"], stderr=subprocess.DEVNULL)
-    time.sleep(1)
+    time.sleep(1)  # Wait for processes to die
+
+    # Delete all tun interfaces (tun0, tun1, etc.)
+    for i in range(5):  # Check tun0 through tun4
+        subprocess.run(["sudo", "ip", "link", "delete", f"tun{i}"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+    time.sleep(2)  # Wait for network stack to settle
+
+    # Verify all tun interfaces are gone
+    result = subprocess.run(["ip", "link", "show"], capture_output=True, text=True)
+    if "tun" in result.stdout:
+        logger.warning("⚠️ Warning: Some tun interfaces still present after cleanup")
+
+    # Wait for IP to revert to original
     start_time = time.time()
     while time.time() - start_time < max_wait:
-        if get_current_ip() == target_ip:
+        current_ip = get_current_ip()
+        if current_ip == target_ip:
             logger.info(f"✅ Disconnect successful. IP is now {target_ip}.")
             return True
+        logger.debug(f"Current IP: {current_ip}, waiting for {target_ip}...")
         time.sleep(2)
+
     logger.error("❌ Disconnect failed. IP did not revert.")
     return False
 
@@ -69,7 +85,9 @@ def connect(region_code, true_public_ip):
         os.chmod(temp_creds, 0o600)
         
         cmd = ["sudo", "openvpn", "--config", config_file, "--auth-user-pass", temp_creds, "--proto", "udp", "--daemon", "--log", OPENVPN_LOG_FILE]
+        # Kill any existing OpenVPN processes before starting new connection
         subprocess.run(["sudo", "pkill", "-9", "-f", "openvpn"], capture_output=True)
+        time.sleep(2)  # Wait for old connection to fully terminate
         subprocess.Popen(cmd)
         if wait_for_ip_change(true_public_ip, server_name):
             # Clean up temporary credential file
