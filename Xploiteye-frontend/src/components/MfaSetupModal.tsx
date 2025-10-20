@@ -95,7 +95,6 @@ export function MfaSetupModal({
     try {
       // Check both token keys for compatibility
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      console.log('Token found:', token ? 'Yes' : 'No')
 
       if (!token) {
         toast({
@@ -107,7 +106,6 @@ export function MfaSetupModal({
         return
       }
 
-      console.log('Initiating MFA setup...')
       const response = await fetch('http://localhost:8000/mfa/setup/initiate', {
         method: 'POST',
         headers: {
@@ -116,16 +114,12 @@ export function MfaSetupModal({
         }
       })
 
-      console.log('Response status:', response.status)
-
       if (response.ok) {
         const data = await response.json()
-        console.log('Setup data received successfully')
         setSetupData(data)
         setStep('setup')
       } else {
         const error = await response.json()
-        console.error('Setup failed:', error)
 
         if (response.status === 401) {
           toast({
@@ -142,7 +136,6 @@ export function MfaSetupModal({
         }
       }
     } catch (error) {
-      console.error('Network error:', error)
       toast({
         title: 'Error',
         description: 'Network error. Please try again.',
@@ -698,10 +691,7 @@ export function MfaSetupModal({
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => {
-                    console.log('Regenerate button clicked')
-                    setShowRegenerateConfirm(true)
-                  }}
+                  onClick={() => setShowRegenerateConfirm(true)}
                   disabled={loading}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -710,10 +700,7 @@ export function MfaSetupModal({
                 <Button
                   variant="outline"
                   className="w-full text-red-400 border-red-500/30 hover:bg-red-500/10"
-                  onClick={() => {
-                    console.log('Disable button clicked')
-                    setShowDisableConfirm(true)
-                  }}
+                  onClick={() => setShowDisableConfirm(true)}
                 >
                   <XCircle className="w-4 h-4 mr-2" />
                   Disable 2FA

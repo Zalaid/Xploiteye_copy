@@ -32,4 +32,4 @@ python-nmap>=0.7.0
 
 # ISO Report Generation (New)
 reportlab>=3.6.0  # PDF generation with advanced graphics
-Pillow>=10.2.0    # Image processing for charts (already included above)
+Pillow>=10.2.0    # Image processing for charts (already included above)pytz==2024.1
