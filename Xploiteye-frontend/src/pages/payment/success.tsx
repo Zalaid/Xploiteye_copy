@@ -40,8 +40,9 @@ const PaymentSuccess: FC<PaymentSuccessProps> = () => {
 
     // Verify payment with backend
     const verifyPayment = async () => {
-
-      console.log('🔍 Verifying payment...', { transaction_id, basket_id, validation_hash: validation_hash?.substring(0, 10) + '...' });
+      // Normalize validation_hash to string (router.query can return string | string[])
+      const hashValue = Array.isArray(validation_hash) ? validation_hash[0] : validation_hash;
+      console.log('🔍 Verifying payment...', { transaction_id, basket_id, validation_hash: hashValue?.substring(0, 10) + '...' });
 
       try {
         // Safe localStorage access (only on client)
@@ -59,7 +60,7 @@ const PaymentSuccess: FC<PaymentSuccessProps> = () => {
               transaction_id,
               basket_id,
               err_code,
-              validation_hash
+              validation_hash: hashValue
               // Removed: PaymentName, transaction_amount, transaction_currency (not used by backend)
             })
           }
