@@ -16,6 +16,12 @@ try:
 except ImportError:
     OpenAI = None
 
+# Import pwn.rc cleaner
+import sys
+from pathlib import Path as PathlibPath
+sys.path.append(str(PathlibPath(__file__).parent.parent))
+from utils.pwn_rc_cleaner import clean_pwn_rc_content, validate_pwn_rc
+
 
 def node_6_pwn_rc_generation(state: Dict) -> Dict:
     """
@@ -174,51 +180,30 @@ def node_6_pwn_rc_generation(state: Dict) -> Dict:
     try:
         client = OpenAI(api_key=openai_api_key)
 
-        prompt = f"""You are a Metasploit pwn.rc file generator.
+        prompt = f"""You are a Metasploit resource script generator. Generate plain msfconsole commands, NOT Ruby code.
 
 TARGET INFORMATION:
 - Machine: {target_os}
 - Service: {service_name} {service_version}
 - IP Address: {target}
 
-I have a working exploit and payload that successfully gives me a basic shell. Now I need you to generate a complete pwn.rc file that will:
-1. Use the SAME exploit: {exploit_module}
-2. Use the SAME payload: {payload}
-3. Target the same host: {target}
-4. Use LHOST: {lhost}
-5. Upgrade the shell to meterpreter using 'sessions -u' command
-6. Attempt privilege escalation to get root meterpreter on {target_os}
+I have a working shell. Generate a plain Metasploit resource script that upgrades to meterpreter.
 
-Here is a REAL WORKING EXAMPLE pwn.rc file that follows the exact structure and pattern you should use:
+EXAMPLE OF CORRECT FORMAT (plain Metasploit commands):
+sessions -u 1
+sleep 30
 
-```ruby
-{demo_content}
-```
+sessions
 
-NOW: Generate a NEW pwn.rc file for my specific exploit ({service_name} on {target_os}), following this exact structure and style:
+GENERATE PLAIN METASPLOIT COMMANDS:
+- Use "sessions -u 1" to upgrade shell to meterpreter
+- Use "sleep" to wait
+- Use "sessions" to list sessions
 
-REQUIREMENTS:
-- Follow EXACT structure from working example provided above
-- Use CORRECT exploit parameters:
-  * For exploit/unix/ftp/vsftpd_234_backdoor: Use cmd/shell/bind_tcp payload, set RHOSTS, LHOST, LPORT
-  * For exploit/unix/misc/distcc_exec: Use cmd/unix/bind_ruby payload, set RHOSTS, LHOST, LPORT
-  * For other exploits: Check what parameters they accept (RHOSTS not RHOST, correct payload names)
-- Exploit: {exploit_module}
-- Payload: {payload}
-- Target: {target}
-- LHOST: {lhost}
-- Include helper functions (log_info, wait_for_new_session, etc)
-- Use framework.sessions to check sessions
-- Use proper error handling
-- DO NOT use generic parameters - check exploit docs!
-
-CRITICAL: Generate ONLY the pwn.rc Ruby code.
-- No explanations, no markdown, no ```  blocks.
-- Start with #!/usr/bin/env ruby
-- MUST wrap all Ruby code between <ruby> and </ruby> tags
-- Use RHOSTS (not RHOST) for target IP
-- Follow the exact structure from the example template provided above
-- Include helper functions like the example shows
+CRITICAL - PLAIN TEXT ONLY:
+- NO Ruby code, NO helper functions, NO definitions
+- Each command on a new line
+- Plain Metasploit resource script format
 """
 
         logger.info("Sending request to GPT-4...")
@@ -249,6 +234,28 @@ CRITICAL: Generate ONLY the pwn.rc Ruby code.
             "pwn_rc_generated": False,
             "error": f"GPT-4 generation failed: {str(e)}"
         }
+
+    logger.info("")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 3.5: CLEAN PWN.RC CONTENT (Remove Markdown Formatting)
+    # ═══════════════════════════════════════════════════════════════════════════
+    logger.info("STEP 3.5: Cleaning pwn.rc content")
+    logger.info("─" * 70)
+
+    try:
+        generated_pwn_rc = clean_pwn_rc_content(generated_pwn_rc)
+        logger.info(f"✓ Cleaned pwn.rc content ({len(generated_pwn_rc)} bytes after cleanup)")
+
+        # Validate the content
+        is_valid, error_msg = validate_pwn_rc(generated_pwn_rc)
+        if not is_valid:
+            logger.warning(f"⚠️  Content validation warning: {error_msg}")
+        else:
+            logger.info(f"✓ Content validation passed")
+
+    except Exception as e:
+        logger.warning(f"⚠️  Content cleaning warning (continuing anyway): {e}")
 
     logger.info("")
 

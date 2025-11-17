@@ -9,9 +9,14 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import json
 
-# Disable urllib3 debug logging
+# Disable verbose debug logging from third-party libraries
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Import red agent workflow (local copies)
 try:

@@ -11,9 +11,14 @@ import threading
 from queue import Queue
 import time
 
-# Disable urllib3 debug logging (connection pool messages)
+# Disable verbose debug logging from third-party libraries
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Global queue for log dispatch
 _log_queue = Queue(maxsize=10000)

