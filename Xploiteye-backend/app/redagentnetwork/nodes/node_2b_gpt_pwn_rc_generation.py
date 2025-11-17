@@ -17,17 +17,10 @@ from pathlib import Path
 from typing import Dict
 import os
 
-# # GPT CODE (COMMENTED OUT - USING GEMINI INSTEAD)
-# try:
-#     from openai import OpenAI
-# except ImportError:
-#     OpenAI = None
-
-# Gemini API
 try:
-    import google.generativeai as genai
+    from openai import OpenAI
 except ImportError:
-    genai = None
+    OpenAI = None
 
 
 def node_2b_gpt_pwn_rc_generation(state: Dict) -> Dict:
@@ -134,48 +127,30 @@ def node_2b_gpt_pwn_rc_generation(state: Dict) -> Dict:
     logger.info(f"✓ LHOST: {lhost}")
     logger.info("")
 
-    # # Check OpenAI API key (COMMENTED OUT - USING GEMINI)
-    # openai_api_key = os.getenv("OPENAI_API_KEY")
-    # if not openai_api_key or openai_api_key == "your_openai_api_key_here":
-    #     logger.error("❌ OPENAI_API_KEY not set in .env file")
-    #     return {
-    #         **state,
-    #         "pwn_rc_generated": False,
-    #         "error": "OPENAI_API_KEY not configured"
-    #     }
-
-    # if not OpenAI:
-    #     logger.error("❌ OpenAI library not installed")
-    #     return {
-    #         **state,
-    #         "pwn_rc_generated": False,
-    #         "error": "OpenAI library not installed"
-    #     }
-
-    # Check Gemini API key
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_api_key or gemini_api_key == "your_gemini_api_key_here":
-        logger.error("❌ GEMINI_API_KEY not set in .env file")
+    # Check OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key or openai_api_key == "your_openai_api_key_here":
+        logger.error("❌ OPENAI_API_KEY not set in .env file")
         return {
             **state,
             "pwn_rc_generated": False,
-            "error": "GEMINI_API_KEY not configured"
+            "error": "OPENAI_API_KEY not configured"
         }
 
-    if not genai:
-        logger.error("❌ Google Generative AI library not installed")
+    if not OpenAI:
+        logger.error("❌ OpenAI library not installed")
         return {
             **state,
             "pwn_rc_generated": False,
-            "error": "Google Generative AI library not installed"
+            "error": "OpenAI library not installed"
         }
 
     logger.info("")
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 2: REQUEST PWN.RC GENERATION FROM GEMINI
+    # STEP 2: REQUEST PWN.RC GENERATION FROM GPT
     # ═══════════════════════════════════════════════════════════════════════════
-    logger.info("STEP 2: Requesting pwn.rc Generation from Gemini")
+    logger.info("STEP 2: Requesting pwn.rc Generation from GPT-4")
     logger.info("─" * 70)
 
     cve_text = f"CVE: {', '.join(cve_ids)}" if cve_ids else "No specific CVE provided"
@@ -218,53 +193,35 @@ CRITICAL: Generate ONLY the pwn.rc Ruby code. No explanations, no markdown, no c
 Generate the pwn.rc now:"""
 
     try:
-        # # GPT CODE (COMMENTED OUT - USING GEMINI)
-        # client = OpenAI(api_key=openai_api_key)
-        # logger.info("Sending request to GPT-4...")
-        # logger.info(f"  Service: {service} {service_version}")
-        # logger.info(f"  Target: {target}:{port}")
-        # logger.info(f"  OS: {detected_os}")
-        # response = client.chat.completions.create(
-        #     model="gpt-4",
-        #     messages=[
-        #         {
-        #             "role": "system",
-        #             "content": "You are an expert Metasploit framework specialist. Generate only complete, working Ruby pwn.rc scripts. No explanations."
-        #         },
-        #         {"role": "user", "content": prompt}
-        #     ],
-        #     temperature=0.3,  # Slightly more creative than Node 6 since we need to be creative
-        #     max_tokens=5000
-        # )
-        # generated_pwn_rc = response.choices[0].message.content.strip()
-        # logger.info(f"✓ GPT-4 generated pwn.rc ({len(generated_pwn_rc)} bytes)")
+        client = OpenAI(api_key=openai_api_key)
 
-        # Gemini API call
-        genai.configure(api_key=gemini_api_key)
-        logger.info("Sending request to Gemini...")
+        logger.info("Sending request to GPT-4...")
         logger.info(f"  Service: {service} {service_version}")
         logger.info(f"  Target: {target}:{port}")
         logger.info(f"  OS: {detected_os}")
 
-        model = genai.GenerativeModel(
-            model_name="gemini-pro",
-            generation_config={
-                "temperature": 0.3,
-                "max_output_tokens": 5000,
-            },
-            system_instruction="You are an expert Metasploit framework specialist. Generate only complete, working Ruby pwn.rc scripts. No explanations."
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an expert Metasploit framework specialist. Generate only complete, working Ruby pwn.rc scripts. No explanations."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,  # Slightly more creative than Node 6 since we need to be creative
+            max_tokens=5000
         )
 
-        response = model.generate_content(prompt)
-        generated_pwn_rc = response.text.strip()
-        logger.info(f"✓ Gemini generated pwn.rc ({len(generated_pwn_rc)} bytes)")
+        generated_pwn_rc = response.choices[0].message.content.strip()
+        logger.info(f"✓ GPT-4 generated pwn.rc ({len(generated_pwn_rc)} bytes)")
 
     except Exception as e:
-        logger.error(f"❌ Gemini generation failed: {e}")
+        logger.error(f"❌ GPT-4 generation failed: {e}")
         return {
             **state,
             "pwn_rc_generated": False,
-            "error": f"Gemini generation failed: {str(e)}"
+            "error": f"GPT-4 generation failed: {str(e)}"
         }
 
     logger.info("")

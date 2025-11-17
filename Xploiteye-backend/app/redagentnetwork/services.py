@@ -300,44 +300,12 @@ class RedAgentService:
         # Update in database
         try:
             db = await self.get_database()
-
-            # Clean the update_data to remove non-serializable objects (like MsfRpcClient)
-            cleaned_update_data = self._clean_for_mongodb(update_data)
-
             await db.red_agent_exploitations.update_one(
                 {"exploitation_id": exploitation_id},
-                {"$set": cleaned_update_data}
+                {"$set": update_data}
             )
         except Exception as e:
             logger.error(f"Failed to update exploitation in database: {e}")
-
-    def _clean_for_mongodb(self, data: Dict) -> Dict:
-        """Remove non-serializable objects from dict for MongoDB"""
-        if not isinstance(data, dict):
-            return data
-
-        cleaned = {}
-        for key, value in data.items():
-            # Skip non-serializable objects
-            if key == "msf_client" or hasattr(value, "__module__"):
-                # Check if it's a custom object that can't be serialized
-                if not isinstance(value, (str, int, float, bool, list, dict, type(None))):
-                    logger.debug(f"Skipping non-serializable field: {key} ({type(value).__name__})")
-                    continue
-
-            # Recursively clean nested dicts
-            if isinstance(value, dict):
-                cleaned[key] = self._clean_for_mongodb(value)
-            # Clean lists
-            elif isinstance(value, list):
-                cleaned[key] = [
-                    self._clean_for_mongodb(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
-            else:
-                cleaned[key] = value
-
-        return cleaned
 
     async def get_exploitation_status(
         self,
