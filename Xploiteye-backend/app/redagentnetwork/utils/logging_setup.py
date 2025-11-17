@@ -30,6 +30,10 @@ def setup_logger(
         logger.info("Starting exploitation...")
     """
 
+    # Disable verbose third-party logging
+    logging.getLogger("langsmith").setLevel(logging.WARNING)
+    logging.getLogger("langchain").setLevel(logging.WARNING)
+
     # Get log level from environment or parameter
     if log_level is None:
         log_level = os.getenv("LOG_LEVEL", "INFO")
