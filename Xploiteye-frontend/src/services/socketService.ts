@@ -23,8 +23,7 @@ class SocketService {
           reject(new Error('Socket.io connection timeout'));
         }, 10000);
 
-        this.socket = io(this.url, {
-          namespace: '/red-agent',
+        this.socket = io(`${this.url}/red-agent`, {
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,

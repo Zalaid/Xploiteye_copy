@@ -8,11 +8,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 import os
+import io
 
 from app.models.email_verification import EmailVerificationToken
 from app.database.mongodb import get_database
@@ -209,6 +210,75 @@ For support, visit: https://xploiteye.com/support
 
         except Exception as e:
             logger.error(f"Failed to send email with attachment to {to_email}: {e}")
+            return False
+
+    async def send_remediation_package_email(
+        self,
+        to_email: str,
+        subject: str,
+        message: str,
+        script_content: str,
+        zip_buffer: io.BytesIO,
+        package_filename: str,
+    ) -> bool:
+        """Send remediation package email with shell script in body and ZIP attachment"""
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['From'] = EmailConfig.DEFAULT_FROM_EMAIL
+            msg['To'] = to_email
+            msg['Subject'] = subject
+
+            # Create email body with script content formatted nicely
+            email_text = f"""{message}
+
+================================================================================
+REMEDIATION SCRIPT
+================================================================================
+
+{script_content}
+
+================================================================================
+
+All supporting files are attached in the ZIP package: {package_filename}
+
+For detailed instructions, see README.md in the package.
+"""
+
+            # Add text body to email
+            msg.attach(MIMEText(email_text, 'plain'))
+
+            # Add ZIP attachment
+            if zip_buffer:
+                zip_buffer.seek(0)
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(zip_buffer.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename= {package_filename}',
+                )
+                msg.attach(part)
+
+            # Gmail SMTP configuration with timeout
+            logger.info(f"Connecting to Gmail SMTP for sending remediation package to {to_email}")
+            server = smtplib.SMTP(EmailConfig.SMTP_SERVER, EmailConfig.SMTP_PORT, timeout=15)
+            server.starttls()  # Enable security
+
+            logger.info(f"Authenticating with Gmail for remediation package email to {to_email}")
+            server.login(EmailConfig.SMTP_USERNAME, EmailConfig.SMTP_PASSWORD)
+
+            # Send email
+            logger.info(f"Sending remediation package email with ZIP attachment to {to_email}")
+            text = msg.as_string()
+            server.sendmail(EmailConfig.DEFAULT_FROM_EMAIL, to_email, text)
+            server.quit()
+
+            logger.info(f"Remediation package email sent successfully to {to_email}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send remediation package email to {to_email}: {e}")
             return False
 
     async def create_verification_token(self, email: str, username: str, password: str) -> Optional[EmailVerificationToken]:

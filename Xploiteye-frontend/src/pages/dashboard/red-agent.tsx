@@ -67,7 +67,7 @@ export function RedAgentDashboard() {
   const [selectedServices, setSelectedServices] = useState<ScannedService[]>([])
   const [exploitationMode, setExploitationMode] = useState('sequential')
   const [maxThreads, setMaxThreads] = useState('4')
-  const [timeout, setTimeout] = useState('30')
+  const [timeout, setTimeoutValue] = useState('30')
   const [isExploiting, setIsExploiting] = useState(false)
   const [exploitProgress, setExploitProgress] = useState(0)
   const [terminalLines, setTerminalLines] = useState<any[]>([])
@@ -181,7 +181,7 @@ export function RedAgentDashboard() {
     const handleRouteChange = (url: string) => {
       if (url.includes('/dashboard/red-agent')) {
         console.log('🔄 Route changed to red-agent, reloading scanning results...')
-        setTimeout(() => loadScanningResults(), 100)
+        window.setTimeout(() => loadScanningResults(), 100)
       }
     }
 
@@ -395,7 +395,7 @@ export function RedAgentDashboard() {
     }
   }
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity: string | undefined) => {
     switch (severity) {
       case "critical":
         return "bg-red-500/20 text-red-400 border-red-500/30"
@@ -869,7 +869,7 @@ export function RedAgentDashboard() {
                                   <p className="text-base text-slate-400 font-mono ml-10 bg-slate-800/40 px-4 py-2 rounded-md inline-block">{service.ip}:{service.port}</p>
                                 </div>
                                 <Badge variant="outline" className={`${getSeverityColor(service.severity)} text-base px-4 py-2 font-semibold`}>
-                                  {service.severity?.charAt(0).toUpperCase() + service.severity?.slice(1).toLowerCase()}
+                                  {service.severity ? service.severity.charAt(0).toUpperCase() + service.severity.slice(1).toLowerCase() : 'MEDIUM'}
                                 </Badge>
                               </div>
 
@@ -1075,7 +1075,7 @@ export function RedAgentDashboard() {
                                 )}
                               </div>
                               <Badge variant="outline" className={`${getSeverityColor(service.severity)} text-sm px-3 py-1 font-semibold`}>
-                                {service.severity?.charAt(0).toUpperCase() + service.severity?.slice(1).toLowerCase()}
+                                {service.severity ? service.severity.charAt(0).toUpperCase() + service.severity.slice(1).toLowerCase() : 'MEDIUM'}
                               </Badge>
                             </div>
                             <p className="text-sm text-slate-400 font-mono mb-3 bg-slate-700/30 px-3 py-2 rounded inline-block">{service.ip}:{service.port}</p>
@@ -1248,7 +1248,7 @@ export function RedAgentDashboard() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={startExploitation}
+                    onClick={startBatchExploitation}
                     className="bg-red-600 hover:bg-red-700"
                   >
                     <Flame className="w-4 h-4 mr-2" />
