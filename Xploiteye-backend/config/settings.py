@@ -78,6 +78,58 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = Field(default=True)
     payment_rate_limit_per_minute: int = Field(default=5)
 
+    # Red Agent Configuration
+    msf_rpc_host: str = Field(default="127.0.0.1")
+    msf_rpc_port: int = Field(default=55553)
+    msf_rpc_password: str = Field(default="xploiteye123")
+    msf_rpc_ssl: bool = Field(default=False)
+    metasploit_lhost: str = Field(default="192.168.0.187")
+
+    agent_version: str = Field(default="1.0.0")
+    agent_name: str = Field(default="XploitEye Red Agent")
+    debug_mode: bool = Field(default=True)
+
+    lhost: str = Field(default="auto")
+    default_lport_range: str = Field(default="4444-9999")
+    exploit_timeout: int = Field(default=30)
+    command_timeout: int = Field(default=15)
+
+    exploitations_base_dir: str = Field(default="./exploitations")
+    session_folder_format: str = Field(default="exploit_{target}_{port}_{service}_{timestamp}")
+    report_format: str = Field(default="pdf,json")
+    report_include_screenshots: bool = Field(default=True)
+
+    log_filename: str = Field(default="red_agent.log")
+    log_format: str = Field(default="[%(asctime)s] [%(levelname)s] %(message)s")
+
+    enable_persistence: bool = Field(default=False)
+    enable_lateral_movement: bool = Field(default=False)
+    exfiltration_enabled: bool = Field(default=True)
+    max_exfiltration_size_mb: int = Field(default=100)
+
+    max_privesc_attempts: int = Field(default=5)
+    enable_kernel_exploits: bool = Field(default=False)
+    enable_suid_exploits: bool = Field(default=True)
+    enable_sudo_exploits: bool = Field(default=True)
+
+    safe_mode: bool = Field(default=True)
+    require_confirmation: bool = Field(default=False)
+    max_concurrent_sessions: int = Field(default=3)
+    auto_cleanup_sessions: bool = Field(default=True)
+
+    max_exploit_retries: int = Field(default=3)
+    retry_delay_seconds: int = Field(default=5)
+    enable_session_upgrade: bool = Field(default=True)
+    upgrade_timeout: int = Field(default=30)
+    preferred_payloads: str = Field(default="linux/x64/meterpreter/reverse_tcp,linux/x86/meterpreter/reverse_tcp,cmd/unix/reverse")
+
+    environment: str = Field(default="development")
+    working_dir: str = Field(default="/home/kali/Desktop/Red agent")
+    temp_dir: str = Field(default="/tmp/red_agent")
+
+    enable_notifications: bool = Field(default=False)
+    notification_methods: str = Field(default="")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

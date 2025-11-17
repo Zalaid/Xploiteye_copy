@@ -1152,8 +1152,51 @@ const globalProgressManager = GlobalProgressManager.getInstance()
       setPortDiscoveryAnalysis(null)
 
       const response = await startPortDiscovery(targetInput.trim(), port)
+      console.log('🎯 Port discovery response received:', response.data)
       setPortDiscoveryData(response.data)
       setPortDiscoveryAnalysis(response.json_result)
+      console.log('📤 setPortDiscoveryData called with:', response.data)
+
+      // Immediately save to localStorage (don't wait for useEffect)
+      console.log('💾 Saving to localStorage immediately...')
+      try {
+        const existingResults = localStorage.getItem('scanningResults')
+        let scanningResults = existingResults ? JSON.parse(existingResults) : []
+        if (!Array.isArray(scanningResults)) {
+          scanningResults = []
+        }
+
+        const existingIndex = scanningResults.findIndex(
+          (r: any) => r.target === response.data.target && r.port === response.data.port
+        )
+
+        if (existingIndex >= 0) {
+          scanningResults[existingIndex] = {
+            target: response.data.target,
+            port: response.data.port,
+            timestamp: response.data.timestamp,
+            results: response.data.results,
+            severity: response.data.results?.cves?.[0]?.severity || 'medium'
+          }
+        } else {
+          scanningResults.push({
+            target: response.data.target,
+            port: response.data.port,
+            timestamp: response.data.timestamp,
+            results: response.data.results,
+            severity: response.data.results?.cves?.[0]?.severity || 'medium'
+          })
+        }
+
+        localStorage.setItem('scanningResults', JSON.stringify(scanningResults))
+        console.log('✅ Saved to localStorage immediately:', scanningResults)
+
+        // Dispatch event
+        window.dispatchEvent(new CustomEvent('scanningResultsUpdated', { detail: scanningResults }))
+        console.log('📢 Event dispatched')
+      } catch (error) {
+        console.error('❌ Error saving to localStorage:', error)
+      }
 
       // Play scan completion sound
       try {
@@ -1659,6 +1702,41 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               setFoundCVEs(cveData)
               setHasActiveScan(false) // Clear active scan flag
               addTerminalLine('success', `✅ Displayed ${cveData.length} vulnerabilities immediately`)
+
+              // SAVE SCAN RESULTS TO localStorage FOR RED AGENT PAGE
+              console.log('💾 [RED AGENT] Saving vulnerability scan results to localStorage...')
+              try {
+                const scanningResults = scanData.results.vulnerabilities.map((vuln: any) => ({
+                  target: scanData.target,
+                  port: vuln.port || 'N/A',
+                  timestamp: new Date().toISOString(),
+                  results: {
+                    service_name: vuln.service || 'Unknown',
+                    service_version: vuln.service_version || 'Unknown',
+                    cves: [{
+                      cve_id: vuln.cve_id,
+                      severity: vuln.severity,
+                      description: vuln.description || 'No description available',
+                      impact: vuln.impact || null,
+                      cvss_score: vuln.cvss_score || 0
+                    }]
+                  },
+                  severity: vuln.severity || 'medium',
+                  cve_id: vuln.cve_id,
+                  cvss_score: vuln.cvss_score || 0,
+                  description: vuln.description || 'No description available',
+                  impact: vuln.impact || null
+                }))
+
+                localStorage.setItem('scanningResults', JSON.stringify(scanningResults))
+                console.log('✅ [RED AGENT] Saved scanning results:', scanningResults)
+
+                // Dispatch event
+                window.dispatchEvent(new CustomEvent('scanningResultsUpdated', { detail: scanningResults }))
+                console.log('📢 [RED AGENT] Event dispatched')
+              } catch (error) {
+                console.error('❌ [RED AGENT] Error saving to localStorage:', error)
+              }
 
               // Save state with CVE data for navigation persistence
               setTimeout(() => saveScanState(), 100)
@@ -2217,6 +2295,72 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
     console.log("✅ [LOGOUT] User scan data cleanup completed")
   }
+
+  // Save port discovery results to localStorage for Red Agent page
+  useEffect(() => {
+    console.log('🔍 [useEffect] portDiscoveryData changed:', portDiscoveryData)
+
+    if (portDiscoveryData) {
+      console.log('💾 [useEffect] Saving portDiscoveryData to localStorage...', portDiscoveryData)
+      try {
+        // Get existing results array or create new one
+        const existingResults = localStorage.getItem('scanningResults')
+        let scanningResults = existingResults ? JSON.parse(existingResults) : []
+        console.log('📦 Current scanningResults:', scanningResults)
+
+        // Ensure it's an array
+        if (!Array.isArray(scanningResults)) {
+          scanningResults = []
+        }
+
+        // Check if this result already exists (same target and port)
+        const existingIndex = scanningResults.findIndex(
+          (r: any) => r.target === portDiscoveryData.target && r.port === portDiscoveryData.port
+        )
+        console.log('🔎 Found existing index:', existingIndex)
+
+        // Update or add the result
+        if (existingIndex >= 0) {
+          scanningResults[existingIndex] = {
+            target: portDiscoveryData.target,
+            port: portDiscoveryData.port,
+            timestamp: portDiscoveryData.timestamp,
+            results: portDiscoveryData.results,
+            severity: portDiscoveryData.results?.cves?.[0]?.severity || 'medium'
+          }
+        } else {
+          scanningResults.push({
+            target: portDiscoveryData.target,
+            port: portDiscoveryData.port,
+            timestamp: portDiscoveryData.timestamp,
+            results: portDiscoveryData.results,
+            severity: portDiscoveryData.results?.cves?.[0]?.severity || 'medium'
+          })
+        }
+
+        // Save back to localStorage
+        const serialized = JSON.stringify(scanningResults)
+        localStorage.setItem('scanningResults', serialized)
+        console.log('✅ Saved scanning results to localStorage:')
+        console.log('   Target:', scanningResults[scanningResults.length - 1]?.target)
+        console.log('   Port:', scanningResults[scanningResults.length - 1]?.port)
+        console.log('   Total results:', scanningResults.length)
+        console.log('   Data:', scanningResults)
+
+        // Verify it was saved
+        const verify = localStorage.getItem('scanningResults')
+        console.log('🔐 Verification - localStorage now contains:', verify ? 'DATA' : 'NOTHING')
+
+        // Dispatch custom event to notify other pages
+        window.dispatchEvent(new CustomEvent('scanningResultsUpdated', {
+          detail: scanningResults
+        }))
+        console.log('📢 Dispatched scanningResultsUpdated event')
+      } catch (error) {
+        console.error('Error saving to localStorage:', error)
+      }
+    }
+  }, [portDiscoveryData])
 
   // Make cleanup function available globally for auth context
   useEffect(() => {

