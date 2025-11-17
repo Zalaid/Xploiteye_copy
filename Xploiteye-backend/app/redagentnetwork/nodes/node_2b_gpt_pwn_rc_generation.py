@@ -213,6 +213,7 @@ GENERATE YOUR SCRIPT - Plain Metasploit commands ONLY:
 
 CRITICAL:
 - Generate ONLY plain Metasploit resource script commands
+- NO shebang (NO #!/usr/bin/env ruby or similar)
 - NO Ruby code, NO helper functions, NO definitions
 - Each command on a new line
 - Use correct exploit from whitelist
@@ -237,7 +238,7 @@ CRITICAL:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,  # Slightly more creative than Node 6 since we need to be creative
-            max_tokens=5000
+            max_tokens=3800  # Reduced from 5000 to respect gpt-3.5-turbo's 4096 token limit
         )
 
         generated_pwn_rc = response.choices[0].message.content.strip()
@@ -289,7 +290,7 @@ CRITICAL:
         result = subprocess.run(
             ["msfconsole", "-q", "-r", str(pwn_rc_path)],
             capture_output=False,
-            timeout=300  # 5 minute timeout
+            timeout=600  # 10 minute timeout
         )
 
         logger.info("")

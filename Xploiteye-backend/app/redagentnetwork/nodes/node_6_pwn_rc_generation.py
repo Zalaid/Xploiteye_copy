@@ -201,6 +201,7 @@ GENERATE PLAIN METASPLOIT COMMANDS:
 - Use "sessions" to list sessions
 
 CRITICAL - PLAIN TEXT ONLY:
+- NO shebang (NO #!/usr/bin/env ruby or similar)
 - NO Ruby code, NO helper functions, NO definitions
 - Each command on a new line
 - Plain Metasploit resource script format
@@ -216,7 +217,7 @@ CRITICAL - PLAIN TEXT ONLY:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert Metasploit framework specialist. You generate only Ruby pwn.rc files. Always use the structure provided in examples. Never add explanations or markdown formatting."
+                    "content": "You are an expert Metasploit framework specialist. Generate ONLY plain Metasploit resource script commands (use, set, exploit, sessions, sleep). NO Ruby code, NO helper functions, NO definitions, NO shebang."
                 },
                 {"role": "user", "content": prompt}
             ],
@@ -297,7 +298,7 @@ CRITICAL - PLAIN TEXT ONLY:
         result = subprocess.run(
             ["msfconsole", "-q", "-r", str(pwn_rc_path)],
             capture_output=False,  # Show output directly
-            timeout=300  # 5 minute timeout
+            timeout=600  # 10 minute timeout
         )
 
         logger.info("")

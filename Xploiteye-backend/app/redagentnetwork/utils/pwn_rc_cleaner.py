@@ -1,6 +1,7 @@
 """
 PWN.RC Content Cleaner
-Removes markdown formatting and extracts clean Ruby code from GPT-generated pwn.rc files
+Removes markdown formatting and shebangs from GPT-generated pwn.rc files
+Produces clean plain Metasploit resource script commands
 """
 
 import re
@@ -8,19 +9,20 @@ import re
 
 def clean_pwn_rc_content(raw_content: str) -> str:
     """
-    Clean up GPT-generated pwn.rc content by removing markdown formatting.
+    Clean up GPT-generated pwn.rc content by removing markdown formatting and shebangs.
 
     Steps:
     1. Extract content between <ruby> and </ruby> tags if present
     2. Remove markdown code block markers (```ruby, ```bash, ```, etc.)
     3. Strip leading/trailing whitespace
     4. Remove empty lines at start/end
+    5. Remove Ruby shebang (if present) - we use plain Metasploit commands
 
     Args:
         raw_content: Raw content from GPT response
 
     Returns:
-        Clean Ruby code ready for msfconsole execution
+        Clean plain Metasploit resource script ready for msfconsole execution
     """
     content = raw_content.strip()
 
@@ -51,11 +53,11 @@ def clean_pwn_rc_content(raw_content: str) -> str:
 
     content = '\n'.join(lines)
 
-    # Ensure shebang is at the very start if present
-    if not content.startswith('#!/'):
-        # Add shebang if missing
-        if 'ruby' not in content[:50].lower():
-            content = '#!/usr/bin/env ruby\n' + content
+    # REMOVE shebang if present (we use plain Metasploit commands, not Ruby)
+    if content.startswith('#!/usr/bin/env ruby'):
+        content = content.replace('#!/usr/bin/env ruby\n', '', 1)
+        content = content.replace('#!/usr/bin/env ruby', '', 1)
+        content = content.strip()
 
     return content
 
@@ -82,8 +84,8 @@ def validate_pwn_rc(content: str) -> tuple:
     if '<ruby>' in content or '</ruby>' in content:
         return False, "Content contains <ruby> tags (should be extracted)"
 
-    # Basic Ruby syntax check
-    if not any(keyword in content for keyword in ['#!/usr/bin/env ruby', 'exploit', 'run_single', 'framework', 'use ', 'set ']):
-        return False, "Content doesn't look like a valid pwn.rc script"
+    # Basic Metasploit syntax check (looking for use, set, exploit commands)
+    if not any(keyword in content for keyword in ['use ', 'set ', 'exploit', 'sessions']):
+        return False, "Content doesn't look like a valid pwn.rc script (missing use, set, exploit, or sessions commands)"
 
     return True, ""
