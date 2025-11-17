@@ -201,7 +201,7 @@ Generate the pwn.rc now:"""
         logger.info(f"  OS: {detected_os}")
 
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "system",

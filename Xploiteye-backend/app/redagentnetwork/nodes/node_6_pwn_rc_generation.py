@@ -220,7 +220,7 @@ CRITICAL: Generate ONLY the pwn.rc Ruby code. No explanations, no markdown, no `
         logger.info(f"  Target: {target}")
 
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "system",
