@@ -148,9 +148,23 @@ def node_2b_gpt_pwn_rc_generation(state: Dict) -> Dict:
     logger.info("")
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 2: REQUEST PWN.RC GENERATION FROM GPT
+    # STEP 2: LOAD DEMO PWN.RC TEMPLATE
     # ═══════════════════════════════════════════════════════════════════════════
-    logger.info("STEP 2: Requesting pwn.rc Generation from GPT-4")
+    logger.info("STEP 2: Loading demo pwn.rc template...")
+    demo_pwn_rc = Path(__file__).parent.parent / "pwn.rc"
+    if not demo_pwn_rc.exists():
+        logger.error(f"❌ Demo pwn.rc template not found at {demo_pwn_rc}")
+        demo_content = ""
+    else:
+        demo_content = demo_pwn_rc.read_text()
+        logger.info(f"✓ Loaded demo pwn.rc template ({len(demo_content)} bytes)")
+
+    logger.info("")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 3: REQUEST PWN.RC GENERATION FROM GPT
+    # ═══════════════════════════════════════════════════════════════════════════
+    logger.info("STEP 3: Requesting pwn.rc Generation from GPT-4")
     logger.info("─" * 70)
 
     cve_text = f"CVE: {', '.join(cve_ids)}" if cve_ids else "No specific CVE provided"
@@ -165,30 +179,42 @@ TARGET DETAILS:
 - Attacker IP (LHOST): {lhost}
 - {cve_text}
 
-IMPORTANT: No public Metasploit exploits found for this target in my database. You must:
-1. Use your knowledge of {service} {service_version} vulnerabilities
-2. Create a pwn.rc that finds/creates an exploitation method
-3. Get a basic shell first, then upgrade to meterpreter
-4. Attempt privilege escalation to get root meterpreter
+IMPORTANT: No public Metasploit exploits found in database. Generate a fallback pwn.rc.
 
-The pwn.rc should:
-- Be written in Ruby syntax for Metasploit msfconsole
-- Use any available vulnerability or misconfiguration of {service}
-- Attempt to connect/authenticate if needed
-- Upgrade the shell to meterpreter using sessions -u
-- Attempt privilege escalation appropriate for {detected_os}
-- Include proper error handling and logging
+USE THIS PROVEN WORKING TEMPLATE AS REFERENCE:
+```ruby
+{demo_content}
+```
 
-EXAMPLE STRUCTURE (follow this pattern):
-- Set RHOST and LHOST variables
-- Create helper functions for logging
-- Attempt exploitation (use available exploits or manual methods)
-- Wait for session
-- Upgrade to meterpreter
-- Attempt privilege escalation
-- Log final results
+Follow this working structure:
 
-CRITICAL: Generate ONLY the pwn.rc Ruby code. No explanations, no markdown, no code blocks. Start with #!/usr/bin/env ruby
+IMPORTANT: Use ONLY these PROVEN WORKING exploits for Metasploitable 2:
+- For FTP (vsftpd 2.3.4): exploit/unix/ftp/vsftpd_234_backdoor with payload cmd/shell/bind_tcp
+- For SSH: exploit/unix/ssh_version
+- For distcc: exploit/unix/misc/distcc_exec with payload cmd/unix/bind_ruby
+- For HTTP (Apache): exploit/linux/http/apache_mod_cgi_bash_env_exec
+- For MySQL: exploit/linux/mysql/udf_priv_esc
+
+DO NOT search or guess - use the correct one for {service}!
+
+Steps:
+1. Set RHOST and LHOST variables
+2. Define helper functions (log_info, wait_for_new_session, get_random_available_port)
+3. Use the CORRECT exploit and payload from the list above for {service}
+4. Set RHOSTS (not RHOST), LHOST, LPORT with proper values
+5. Wait for sessions after running exploit
+6. Handle session upgrades and privilege escalation
+
+Use framework.sessions and run_single() properly.
+
+CRITICAL: Generate ONLY the pwn.rc Ruby code.
+- No explanations, no markdown, no code blocks.
+- Start with: #!/usr/bin/env ruby
+- MUST wrap all Ruby code between <ruby> and </ruby> tags
+- Follow proper structure with helper functions
+- Include wait_for_new_session() logic like in a real working exploit
+- Use framework.sessions to check for sessions
+- Set RHOSTS (not RHOST) for the target
 
 Generate the pwn.rc now:"""
 

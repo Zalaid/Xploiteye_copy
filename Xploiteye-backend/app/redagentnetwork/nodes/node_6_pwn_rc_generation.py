@@ -198,20 +198,27 @@ Here is a REAL WORKING EXAMPLE pwn.rc file that follows the exact structure and 
 NOW: Generate a NEW pwn.rc file for my specific exploit ({service_name} on {target_os}), following this exact structure and style:
 
 REQUIREMENTS:
-- Replace the exploit module with: {exploit_module}
-- Replace the payload with: {payload}
-- Replace RHOST with: {target}
-- Replace LHOST with: {lhost}
-- Keep ALL helper functions (log_info, log_success, log_error, wait_for_new_session, etc)
-- Keep the same Ruby syntax and structure
-- Generate random ports using get_random_available_port
-- Include sessions -u upgrade step
-- Include privilege escalation attempt (appropriate for {target_os})
-- Use run_single() for msfconsole commands
-- Include proper error handling
-- **CONDITIONAL EXIT: Only include run_single("exit") if NO meterpreter session obtained. If meterpreter obtained, KEEP msfconsole open for post-exploitation**
+- Follow EXACT structure from working example provided above
+- Use CORRECT exploit parameters:
+  * For exploit/unix/ftp/vsftpd_234_backdoor: Use cmd/shell/bind_tcp payload, set RHOSTS, LHOST, LPORT
+  * For exploit/unix/misc/distcc_exec: Use cmd/unix/bind_ruby payload, set RHOSTS, LHOST, LPORT
+  * For other exploits: Check what parameters they accept (RHOSTS not RHOST, correct payload names)
+- Exploit: {exploit_module}
+- Payload: {payload}
+- Target: {target}
+- LHOST: {lhost}
+- Include helper functions (log_info, wait_for_new_session, etc)
+- Use framework.sessions to check sessions
+- Use proper error handling
+- DO NOT use generic parameters - check exploit docs!
 
-CRITICAL: Generate ONLY the pwn.rc Ruby code. No explanations, no markdown, no ```  blocks. Start with #!/usr/bin/env ruby
+CRITICAL: Generate ONLY the pwn.rc Ruby code.
+- No explanations, no markdown, no ```  blocks.
+- Start with #!/usr/bin/env ruby
+- MUST wrap all Ruby code between <ruby> and </ruby> tags
+- Use RHOSTS (not RHOST) for target IP
+- Follow the exact structure from the example template provided above
+- Include helper functions like the example shows
 """
 
         logger.info("Sending request to GPT-4...")

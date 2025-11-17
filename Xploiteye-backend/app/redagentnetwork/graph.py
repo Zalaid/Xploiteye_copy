@@ -25,28 +25,47 @@ def create_workflow() -> StateGraph:
     """
     Create and return the Red Agent workflow graph.
 
-    Current flow (Three Paths):
+    ╔════════════════════════════════════════════════════════════════════════╗
+    ║                         WORKFLOW PATHS                                 ║
+    ╚════════════════════════════════════════════════════════════════════════╝
 
-    PATH 1 - Metasploit Exploits Successfully Executed:
-        START → Node 1 (Initialization & Validation)
-             → Node 2 (Exploit Discovery)
-             → Node 3 (Exploit Ranking & Selection)
-             → Node 4 (Payload Selection & Configuration)
-             → Node 5 (Exploit Execution - Gets Shell)
-             → Node 6 (PWN.RC Generation for Meterpreter Upgrade) → END
+    PATH 1 - Metasploit Exploits Successfully Get Shell + Meterpreter:
+        Node 1 → Node 2 → Node 3 → Node 4 → Node 5 (Gets Shell)
+               → Node 6 (Generates Meterpreter via pwn.rc) → END ✅
 
-    PATH 2 - Metasploit Exploits Found But Fail in Node 5 (Fallback to GPT):
-        START → Node 1 (Initialization & Validation)
-             → Node 2 (Exploit Discovery)
-             → Node 3 (Exploit Ranking & Selection)
-             → Node 4 (Payload Selection & Configuration)
-             → Node 5 (Exploit Execution - NO Shell)
-             → Node 5.5 (GPT Fallback Exploit Generation) → END
+    PATH 2A - Metasploit Exploits Get Shell + Meterpreter via Node 6:
+        Node 1 → Node 2 → Node 3 → Node 4 → Node 5 (Gets Shell)
+               → Node 6 (No meterpreter but OS is Linux 2.6.x)
+               → Node 7 (Manual Exploit Conversion) → END ⚡
 
-    PATH 3 - No Metasploit Exploits Found (Fallback to GPT):
-        START → Node 1 (Initialization & Validation)
-             → Node 2 (Exploit Discovery)
-             → Node 2B (GPT PWN.RC Generation) → END
+    PATH 2B - Metasploit Exploits Fail in Node 5 (GPT Fallback):
+        Node 1 → Node 2 → Node 3 → Node 4 → Node 5 (NO Shell)
+               → Node 5.5 (GPT Fallback pwn.rc Generation & Execution)
+               → END (If Meterpreter) OR Node 7 (If No Meterpreter) ⚡
+
+    PATH 3 - No Metasploit Exploits Found (GPT Generation):
+        Node 1 → Node 2 (Found 0 exploits)
+               → Node 2B (GPT pwn.rc Generation & Execution) → END ⚡
+
+    ╔════════════════════════════════════════════════════════════════════════╗
+    ║                    KEY DECISION POINTS                                 ║
+    ╚════════════════════════════════════════════════════════════════════════╝
+
+    Node 1 → Node 2?
+        IF validated: YES | ELSE: END ❌
+
+    Node 2 → Node 3 or 2B?
+        IF filtered_exploits > 0: Node 3 | ELSE: Node 2B (GPT Fallback)
+
+    Node 5 → Node 6 or 5.5?
+        IF successful_payloads > 0: Node 6 | ELSE: Node 5.5 (GPT Fallback)
+
+    Node 5.5 → Node 7 or END?
+        IF primary_session_id obtained: END ✅ | ELSE: Node 7 (Final Backup)
+
+    Node 6 → Node 7 or END?
+        IF primary_session_type == "meterpreter": END ✅
+        ELIF detected_os contains "2.6": Node 7 | ELSE: END ❌
 
     Returns:
         Compiled LangGraph workflow
@@ -180,15 +199,15 @@ def create_workflow() -> StateGraph:
         Route after Node 5.5 based on GPT fallback results.
 
         Routing logic:
-        - IF pwn_rc_generated: TRUE: → END (fallback exploitation attempted)
-        - ELSE (no meterpreter): → Node 2B-Backup (M2) (manual exploit converter)
+        - IF pwn_rc_generated: TRUE and primary_session_id exists: → END (meterpreter obtained)
+        - ELSE (no meterpreter from GPT): → Node 7 Backup M2 (manual exploit converter for Linux 2.6.x)
         """
         if state.get("pwn_rc_generated") and state.get("primary_session_id"):
             # Meterpreter obtained, finish here
             return END
         else:
-            # GPT fallback didn't get meterpreter, try manual exploit conversion
-            return "node_2b_backup_m2"
+            # GPT fallback didn't get meterpreter, try manual exploit conversion (Node 7)
+            return "node_7_backup_m2"
 
     workflow.add_conditional_edges(
         "node_5_5_gpt_fallback",
