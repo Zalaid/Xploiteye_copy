@@ -87,6 +87,85 @@ export function RedAgentDashboard() {
   const [lastLogIndex, setLastLogIndex] = useState(0) // Track which logs we've already shown
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
 
+  // Restore exploitation state from localStorage on page mount
+  useEffect(() => {
+    const restoreExploitationState = async () => {
+      try {
+        const savedExploitation = localStorage.getItem('currentRedAgentExploitation')
+        if (!savedExploitation) {
+          console.log('ℹ️ No saved exploitation state found')
+          return
+        }
+
+        const exploitation = JSON.parse(savedExploitation)
+        console.log('📂 [RESTORE] Found saved exploitation:', exploitation)
+
+        // Set the basic state
+        setExploitationId(exploitation.exploitationId)
+        setExploitingService(exploitation.targetService)
+        setIsExploiting(true)
+
+        // Add initial message
+        addTerminalLine('info', `📂 Restored exploitation session: ${exploitation.exploitationId}`)
+        addTerminalLine('info', `⏰ Started at: ${exploitation.startedAt}`)
+
+        // Fetch logs from backend to show history
+        try {
+          console.log('🔄 [RESTORE] Fetching logs from backend for:', exploitation.exploitationId)
+          const response = await fetch(`http://localhost:5001/api/get-logs/${exploitation.exploitationId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            const logs = data.logs || []
+            console.log(`✅ [RESTORE] Retrieved ${logs.length} historical logs from backend`)
+
+            // Add all historical logs to terminal
+            if (logs.length > 0) {
+              addTerminalLine('success', `✅ Loaded ${logs.length} historical log entries`)
+              logs.forEach((log: any) => {
+                addTerminalLine(log.type || 'info', log.content)
+              })
+              setLastLogIndex(logs.length)
+              console.log(`✅ [RESTORE] Displayed ${logs.length} logs in terminal`)
+            }
+          } else {
+            console.warn('⚠️ [RESTORE] Failed to fetch logs:', response.status)
+            addTerminalLine('warning', '⚠️ Could not retrieve historical logs')
+          }
+        } catch (error) {
+          console.error('❌ [RESTORE] Error fetching logs:', error)
+          addTerminalLine('warning', '⚠️ Network error fetching historical logs')
+        }
+
+        console.log('✅ [RESTORE] Exploitation state fully restored')
+      } catch (error) {
+        console.error('❌ [RESTORE] Error restoring exploitation state:', error)
+        addTerminalLine('error', '❌ Error restoring previous exploitation')
+      }
+    }
+
+    // Only restore if we're on the red-agent page
+    if (router.pathname?.includes('/red-agent')) {
+      restoreExploitationState()
+    }
+  }, [router.pathname])
+
+  // Auto-clear localStorage when exploitation completes
+  useEffect(() => {
+    if (exploitationId && !isExploiting) {
+      // Exploitation has ended, clear localStorage after a brief delay
+      const timer = setTimeout(() => {
+        localStorage.removeItem('currentRedAgentExploitation')
+        console.log('🗑️ [AUTO-CLEANUP] Cleared exploitation state after completion')
+      }, 1500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [exploitationId, isExploiting])
+
   // Function to load scanning results from localStorage
   const loadScanningResults = async () => {
     try {
@@ -699,6 +778,9 @@ export function RedAgentDashboard() {
                             setTerminalLines([])
                             setLastLogIndex(0)
                             setCommandInput('')
+                            // 🗑️ Clear localStorage when exiting
+                            localStorage.removeItem('currentRedAgentExploitation')
+                            console.log('🗑️ [CLEANUP] Cleared exploitation state from localStorage')
                           }}
                           className="flex-1 px-4 py-3 bg-slate-700/50 hover:bg-slate-700 text-slate-200 rounded-lg transition-all font-bold"
                         >
@@ -741,6 +823,15 @@ export function RedAgentDashboard() {
                                 addTerminalLine('success', `✅ HTTP polling started - logs will appear in real-time`)
                                 setIsExploiting(true)
 
+                                // 💾 Save exploitation state to localStorage for persistence
+                                const exploitationState = {
+                                  exploitationId: newExploitationId,
+                                  targetService: exploitingService,
+                                  startedAt: new Date().toISOString()
+                                }
+                                localStorage.setItem('currentRedAgentExploitation', JSON.stringify(exploitationState))
+                                console.log('💾 [SAVE] Exploitation state saved to localStorage:', exploitationState)
+
                               } catch (error: any) {
                                 const errorMsg = error?.message || String(error)
                                 console.error('🔴 Error starting exploitation:', errorMsg, error)
@@ -767,6 +858,9 @@ export function RedAgentDashboard() {
                                 await stopExploitation(exploitationId)
                                 setIsExploiting(false)
                                 addTerminalLine('warning', `⚠️ Exploitation stopped by user`)
+                                // 🗑️ Clear localStorage when stopped
+                                localStorage.removeItem('currentRedAgentExploitation')
+                                console.log('🗑️ [CLEANUP] Cleared exploitation state on stop')
                               } catch (error) {
                                 console.error('❌ Error stopping exploitation:', error)
                                 addTerminalLine('error', `❌ Failed to stop exploitation: ${error}`)
