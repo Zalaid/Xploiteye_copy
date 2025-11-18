@@ -44,6 +44,7 @@ def setup_logger(
     # Create logger
     logger = logging.getLogger(logger_name)
     logger.setLevel(numeric_level)
+    logger.propagate = False  # Don't propagate to parent loggers to avoid duplicates
 
     # Clear existing handlers to avoid duplicates
     logger.handlers.clear()
@@ -57,13 +58,13 @@ def setup_logger(
     # Create formatter
     formatter = logging.Formatter(log_format)
 
-    # File handler (logs to session directory)
+    # File handler - writes to session directory
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(numeric_level)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    # Console handler (also print to console)
+    # Console handler - prints to terminal so you can see logs in real-time
     console_handler = logging.StreamHandler()
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(formatter)

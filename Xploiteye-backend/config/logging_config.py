@@ -133,6 +133,20 @@ def setup_uvicorn_logging():
     uvicorn_error_logger.addHandler(handler)
     uvicorn_error_logger.propagate = False
 
+    # Setup red_agent logger for terminal output
+    red_agent_logger = logging.getLogger("red_agent")
+    red_agent_logger.setLevel(logging.DEBUG)
+    red_agent_logger.propagate = False
+
+    # Clear existing handlers
+    red_agent_logger.handlers.clear()
+
+    # Add console handler so logs print to terminal
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%H:%M:%S'))
+    red_agent_logger.addHandler(console_handler)
+
 def log_meaningful_startup():
     """Log meaningful startup information"""
     scanning_logger.logger.info("🌟 XploitEye Backend Starting...")

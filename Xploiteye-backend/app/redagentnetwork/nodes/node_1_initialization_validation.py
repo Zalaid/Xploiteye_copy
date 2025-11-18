@@ -76,9 +76,11 @@ def node_1_initialization_validation(state: Dict) -> Dict:
         import logging
         logger = logging.getLogger("red_agent")
         logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s"))
-        logger.addHandler(handler)
+        # Only add handler if one doesn't already exist to avoid duplicates
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s"))
+            logger.addHandler(handler)
 
     # Log node start
     log_node_start(logger, "INITIALIZATION & VALIDATION", 1)
@@ -90,7 +92,7 @@ def node_1_initialization_validation(state: Dict) -> Dict:
     logger.info("")
 
     # Get timeout from environment
-    connection_timeout = int(os.getenv("CONNECTION_TIMEOUT", "10"))
+    connection_timeout = int(os.getenv("CONNECTION_TIMEOUT", "2"))
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 1: TARGET REACHABILITY CHECK

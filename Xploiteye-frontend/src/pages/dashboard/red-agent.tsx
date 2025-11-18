@@ -35,7 +35,6 @@ import { Textarea } from "@/components/ui/textarea"
 
 // Import services
 import { startExploitation, stopExploitation } from '@/services/redAgentApi'
-import { socketService } from '@/services/socketService'
 
 // Severity levels mapping
 const SEVERITY_LEVELS = {
@@ -61,6 +60,8 @@ interface ScannedService {
 export function RedAgentDashboard() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
+  const [activeStep, setActiveStep] = useState(1) // Visual indicator for which step is active (can be different from currentStep)
+  const [currentTime, setCurrentTime] = useState(new Date())
   const [scannedServices, setScannedServices] = useState<ScannedService[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -86,85 +87,9 @@ export function RedAgentDashboard() {
   const terminalRef = React.useRef<HTMLDivElement>(null)
   const [lastLogIndex, setLastLogIndex] = useState(0) // Track which logs we've already shown
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
+  const wsRef = React.useRef<WebSocket | null>(null)
 
-  // Restore exploitation state from localStorage on page mount
-  useEffect(() => {
-    const restoreExploitationState = async () => {
-      try {
-        const savedExploitation = localStorage.getItem('currentRedAgentExploitation')
-        if (!savedExploitation) {
-          console.log('ℹ️ No saved exploitation state found')
-          return
-        }
 
-        const exploitation = JSON.parse(savedExploitation)
-        console.log('📂 [RESTORE] Found saved exploitation:', exploitation)
-
-        // Set the basic state
-        setExploitationId(exploitation.exploitationId)
-        setExploitingService(exploitation.targetService)
-        setIsExploiting(true)
-
-        // Add initial message
-        addTerminalLine('info', `📂 Restored exploitation session: ${exploitation.exploitationId}`)
-        addTerminalLine('info', `⏰ Started at: ${exploitation.startedAt}`)
-
-        // Fetch logs from backend to show history
-        try {
-          console.log('🔄 [RESTORE] Fetching logs from backend for:', exploitation.exploitationId)
-          const response = await fetch(`http://localhost:5001/api/get-logs/${exploitation.exploitationId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            const logs = data.logs || []
-            console.log(`✅ [RESTORE] Retrieved ${logs.length} historical logs from backend`)
-
-            // Add all historical logs to terminal
-            if (logs.length > 0) {
-              addTerminalLine('success', `✅ Loaded ${logs.length} historical log entries`)
-              logs.forEach((log: any) => {
-                addTerminalLine(log.type || 'info', log.content)
-              })
-              setLastLogIndex(logs.length)
-              console.log(`✅ [RESTORE] Displayed ${logs.length} logs in terminal`)
-            }
-          } else {
-            console.warn('⚠️ [RESTORE] Failed to fetch logs:', response.status)
-            addTerminalLine('warning', '⚠️ Could not retrieve historical logs')
-          }
-        } catch (error) {
-          console.error('❌ [RESTORE] Error fetching logs:', error)
-          addTerminalLine('warning', '⚠️ Network error fetching historical logs')
-        }
-
-        console.log('✅ [RESTORE] Exploitation state fully restored')
-      } catch (error) {
-        console.error('❌ [RESTORE] Error restoring exploitation state:', error)
-        addTerminalLine('error', '❌ Error restoring previous exploitation')
-      }
-    }
-
-    // Only restore if we're on the red-agent page
-    if (router.pathname?.includes('/red-agent')) {
-      restoreExploitationState()
-    }
-  }, [router.pathname])
-
-  // Auto-clear localStorage when exploitation completes
-  useEffect(() => {
-    if (exploitationId && !isExploiting) {
-      // Exploitation has ended, clear localStorage after a brief delay
-      const timer = setTimeout(() => {
-        localStorage.removeItem('currentRedAgentExploitation')
-        console.log('🗑️ [AUTO-CLEANUP] Cleared exploitation state after completion')
-      }, 1500)
-
-      return () => clearTimeout(timer)
-    }
-  }, [exploitationId, isExploiting])
 
   // Function to load scanning results from localStorage
   const loadScanningResults = async () => {
@@ -247,6 +172,19 @@ export function RedAgentDashboard() {
     loadScanningResults()
   }, [])
 
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Update active step indicator when currentStep changes
+  useEffect(() => {
+    setActiveStep(currentStep)
+  }, [currentStep])
+
   // Reload scanning results when page becomes visible (user returns from scanning page)
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -282,69 +220,83 @@ export function RedAgentDashboard() {
     }
   }, [router.events])
 
-  // Auto-scroll terminal to bottom when new lines are added
+  // Auto-scroll terminal to bottom ONLY if user is already at bottom
   useEffect(() => {
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+      // Check if user is near the bottom (within 50px)
+      const isNearBottom =
+        terminalRef.current.scrollHeight - terminalRef.current.scrollTop - terminalRef.current.clientHeight < 50
+
+      // Only auto-scroll if user is already at the bottom
+      if (isNearBottom) {
+        terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+      }
     }
   }, [terminalLines])
 
-  // Poll for logs via HTTP when exploiting service is set
-  useEffect(() => {
-    if (!exploitationId) {
-      // Cleanup polling when no exploitation
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-        pollingIntervalRef.current = null
-      }
-      return
+  // Strip ANSI escape codes
+  const stripAnsi = (str: string) => {
+    return str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\[0m/g, '').replace(/\[[0-9]*m/g, '')
+  }
+
+  // Connect to meterpreter WebSocket
+  const connectWebSocket = (exploitationId: string) => {
+    console.log(`🔌 Connecting to meterpreter WebSocket...`)
+    const wsUrl = `ws://localhost:8000/api/meterpreter/ws/meterpreter`
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      console.log('✅ Meterpreter WebSocket connected!')
     }
 
-    const pollLogs = async () => {
+    ws.onmessage = (event) => {
       try {
-        // Get logs from HTTP endpoint
-        const response = await fetch(`http://localhost:5001/api/get-logs/${exploitationId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!response.ok) {
-          console.error('❌ Failed to fetch logs:', response.status)
+        // Try to parse as JSON first
+        const jsonData = JSON.parse(event.data)
+        if (jsonData.type === 'red_message') {
+          // Handle red message (error type = red)
+          addTerminalLine('error', jsonData.content)
           return
         }
-
-        const data = await response.json()
-        const logs = data.logs || []
-
-        // Only add new logs that we haven't displayed yet
-        if (logs.length > lastLogIndex) {
-          const newLogs = logs.slice(lastLogIndex)
-          newLogs.forEach((log: any) => {
-            addTerminalLine(log.type || 'info', log.content)
-          })
-          setLastLogIndex(logs.length)
+        if (jsonData.type === 'yellow_message') {
+          // Handle yellow message (warning type = yellow)
+          addTerminalLine('warning', jsonData.content)
+          return
         }
-      } catch (error) {
-        console.error('❌ Error polling logs:', error)
+      } catch (e) {
+        // Not JSON, treat as regular text
+      }
+
+      const output = stripAnsi(event.data)
+
+      // Show ALL output lines
+      if (output.trim()) {
+        // Color code output based on prefix
+        let type: 'info' | 'success' | 'warning' | 'error' | 'exploit' = 'info'
+        if (output.includes('[+]')) {
+          type = 'success'
+        } else if (output.includes('[!]') || output.includes('[ERROR]')) {
+          type = 'error'
+        } else if (output.includes('[*]')) {
+          type = 'exploit'
+        }
+
+        addTerminalLine(type, output)
       }
     }
 
-    // Initial poll
-    pollLogs()
-
-    // Set up polling interval (every 500ms for real-time feel)
-    pollingIntervalRef.current = setInterval(pollLogs, 500)
-
-    // Cleanup
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-        pollingIntervalRef.current = null
-      }
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket error:', error)
+      addTerminalLine('error', '❌ Meterpreter connection failed')
     }
-  }, [exploitationId])
+
+    ws.onclose = () => {
+      console.log('🔌 Meterpreter disconnected')
+      wsRef.current = null
+    }
+
+    wsRef.current = ws
+  }
 
   const addTerminalLine = (type: 'info' | 'success' | 'warning' | 'error' | 'exploit', content: string) => {
     const newLine = {
@@ -352,8 +304,13 @@ export function RedAgentDashboard() {
       timestamp: new Date().toLocaleTimeString(),
       type,
       content,
+      isNew: true  // Track if line is newly added for animation
     }
-    setTerminalLines(prev => [...prev, newLine])
+    setTerminalLines(prev => {
+      const updated = [...prev, newLine]
+      // Keep only last 150 lines to prevent memory/rendering issues
+      return updated.slice(-150)
+    })
   }
 
   const handleServiceToggle = (service: ScannedService) => {
@@ -517,60 +474,50 @@ export function RedAgentDashboard() {
         </div>
       </motion.div>
 
-      {/* Step Indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 rounded-lg p-8 border border-slate-700/50"
-      >
-        <div className="flex items-center justify-between relative">
-          {/* Progress Line */}
-          <div className="absolute top-6 left-0 right-0 h-1 bg-slate-700/50 -z-10">
-            <motion.div
-              className="h-full bg-gradient-to-r from-red-500 to-orange-500"
-              initial={{ width: "0%" }}
-              animate={{ width: `${((currentStep - 1) / 3) * 100}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
+      {/* Target Information Card */}
+      {scannedServices.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-lg p-6 border border-red-500/30"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Target IP */}
+            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+              <p className="text-xs text-slate-400 font-medium mb-2 uppercase">Target IP</p>
+              <p className="text-lg font-bold text-cyan-400 font-mono">{scannedServices[0]?.ip}</p>
+            </div>
 
-          {/* Step Circles */}
-          {steps.map((step) => (
-            <motion.button
-              key={step.number}
-              onClick={() => step.number < currentStep && setCurrentStep(step.number)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex flex-col items-center relative z-10"
-              disabled={step.number > currentStep}
-            >
-              <motion.div
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                  step.number < currentStep
-                    ? "bg-green-500/20 border-2 border-green-500 text-green-400 cursor-pointer"
-                    : step.number === currentStep
-                      ? "bg-red-500/20 border-2 border-red-500 text-red-400 shadow-lg shadow-red-500/50"
-                      : "bg-slate-700/50 border-2 border-slate-600 text-slate-400"
-                }`}
-                animate={step.number === currentStep ? { boxShadow: ["0 0 0 0 rgba(239, 68, 68, 0.7)", "0 0 0 20px rgba(239, 68, 68, 0)"] } : {}}
-                transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-              >
-                {step.number < currentStep ? <CheckCircle className="w-5 h-5" /> : step.number}
-              </motion.div>
-              <motion.div
-                className="mt-3 text-center"
-                animate={step.number === currentStep ? { color: ["#fb7185", "#fca5ac"] } : {}}
-                transition={{ duration: 0.7, repeat: Number.POSITIVE_INFINITY, repeatType: "reverse" }}
-              >
-                <p className={`text-xs font-medium ${step.number <= currentStep ? "text-slate-300" : "text-slate-500"}`}>
-                  {step.title}
-                </p>
-              </motion.div>
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
+            {/* Total Services Found */}
+            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+              <p className="text-xs text-slate-400 font-medium mb-2 uppercase">Services Found</p>
+              <p className="text-lg font-bold text-lime-400">{scannedServices.length}</p>
+              <p className="text-xs text-slate-500 mt-1">{scannedServices.map(s => `${s.service}:${s.port}`).join(', ')}</p>
+            </div>
+
+            {/* Vulnerabilities */}
+            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+              <p className="text-xs text-slate-400 font-medium mb-2 uppercase">Vulnerabilities</p>
+              <p className="text-lg font-bold text-red-400">{scannedServices.reduce((acc, s) => acc + (s.cves?.length || 0), 0)}</p>
+              <div className="flex gap-1 mt-2 flex-wrap">
+                {scannedServices.slice(0, 3).map((s, idx) => (
+                  <span key={idx} className={`text-xs px-2 py-1 rounded ${s.severity === 'critical' ? 'bg-red-500/30 text-red-400' : s.severity === 'high' ? 'bg-orange-500/30 text-orange-400' : 'bg-yellow-500/30 text-yellow-400'}`}>
+                    {s.severity?.toUpperCase()}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Current Time */}
+            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+              <p className="text-xs text-slate-400 font-medium mb-2 uppercase">Time</p>
+              <p className="text-lg font-bold text-purple-400 font-mono">{currentTime.toLocaleTimeString()}</p>
+              <p className="text-xs text-slate-500 mt-1">{currentTime.toLocaleDateString()}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
@@ -587,7 +534,7 @@ export function RedAgentDashboard() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center space-x-3">
                   <Eye className="w-6 h-6 text-red-400" />
-                  <span>Scan Results Overview</span>
+                  <span>Operation Dashboard</span>
                 </CardTitle>
                 <motion.button
                   onClick={loadScanningResults}
@@ -648,41 +595,6 @@ export function RedAgentDashboard() {
                   </div>
                 )}
 
-                {/* Stats Grid */}
-                {!isLoadingServices && scannedServices.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card className="bg-red-500/10 border-red-500/30">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Total Services</p>
-                        <p className="text-3xl font-bold text-red-400 mt-1">{scannedServices.length}</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-orange-500/10 border-orange-500/30">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Critical</p>
-                        <p className="text-3xl font-bold text-orange-400 mt-1">
-                          {scannedServices.filter(s => s.severity === 'critical').length}
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-yellow-500/10 border-yellow-500/30">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">High</p>
-                        <p className="text-3xl font-bold text-yellow-400 mt-1">
-                          {scannedServices.filter(s => s.severity === 'high').length}
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-cyan-500/10 border-cyan-500/30">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Total CVEs</p>
-                        <p className="text-3xl font-bold text-cyan-400 mt-1">
-                          {scannedServices.reduce((acc, s) => acc + (s.cves?.length || 0), 0)}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
 
                 {/* Exploitation Terminal View */}
                 {exploitingService && (
@@ -702,7 +614,8 @@ export function RedAgentDashboard() {
                       {/* Terminal Display */}
                       <div
                         ref={terminalRef}
-                        className="h-80 bg-black/95 rounded-lg p-4 font-mono text-sm border border-slate-700/50 overflow-y-auto space-y-1"
+                        className="h-80 bg-black/95 rounded-lg p-4 font-mono text-sm border border-slate-700/50 overflow-y-auto"
+                        style={{ scrollBehavior: 'smooth' }}
                       >
                         {terminalLines.length === 0 ? (
                           <div className="space-y-2 text-slate-600">
@@ -713,23 +626,26 @@ export function RedAgentDashboard() {
                             <div className="mt-4">Ready to execute exploitation commands...</div>
                           </div>
                         ) : (
-                          terminalLines.map((line) => (
-                            <div
-                              key={line.id}
-                              className={`flex gap-2 text-xs ${
-                                line.type === 'success' ? 'text-green-400' :
-                                line.type === 'error' ? 'text-red-400' :
-                                line.type === 'warning' ? 'text-yellow-400' :
-                                line.type === 'exploit' ? 'text-cyan-400' :
-                                'text-slate-400'
-                              }`}
-                            >
-                              <span className="text-slate-600 flex-shrink-0">{line.timestamp}</span>
-                              <span>{line.content}</span>
-                            </div>
-                          ))
+                          <div className="space-y-1">
+                            {terminalLines.map((line) => (
+                              <div
+                                key={line.id}
+                                className={`flex gap-2 text-xs ${
+                                  line.type === 'success' ? 'text-green-400' :
+                                  line.type === 'error' ? 'text-red-400' :
+                                  line.type === 'warning' ? 'text-yellow-400' :
+                                  line.type === 'exploit' ? 'text-cyan-400' :
+                                  'text-slate-400'
+                                }`}
+                              >
+                                <span className="text-slate-600 flex-shrink-0">{line.timestamp}</span>
+                                <span>{line.content}</span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
+
 
                       {/* Command Input (visible only during exploitation) */}
                       {isExploiting && (
@@ -741,22 +657,28 @@ export function RedAgentDashboard() {
                               onChange={(e) => setCommandInput(e.target.value)}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' && commandInput.trim()) {
-                                  if (exploitationId) {
-                                    socketService.executeCommand(exploitationId, commandInput)
-                                    addTerminalLine('info', `> ${commandInput}`)
+                                  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(commandInput)
+                                    addTerminalLine('info', `meterpreter> ${commandInput}`)
                                     setCommandInput('')
+                                  } else {
+                                    addTerminalLine('error', '❌ Not connected to meterpreter')
                                   }
                                 }
                               }}
-                              placeholder="Enter meterpreter command (e.g., 'whoami', 'shell', 'help')..."
+                              placeholder="Enter meterpreter command (e.g., 'whoami', 'id', 'pwd')..."
                               className="bg-black/50 border-slate-600 text-slate-100 placeholder:text-slate-500 text-sm"
                             />
                             <Button
                               onClick={() => {
-                                if (commandInput.trim() && exploitationId) {
-                                  socketService.executeCommand(exploitationId, commandInput)
-                                  addTerminalLine('info', `> ${commandInput}`)
-                                  setCommandInput('')
+                                if (commandInput.trim()) {
+                                  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(commandInput)
+                                    addTerminalLine('info', `meterpreter> ${commandInput}`)
+                                    setCommandInput('')
+                                  } else {
+                                    addTerminalLine('error', '❌ Not connected to meterpreter')
+                                  }
                                 }
                               }}
                               className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold"
@@ -772,15 +694,16 @@ export function RedAgentDashboard() {
                       <div className="flex gap-3">
                         <button
                           onClick={() => {
+                            // Cleanup WebSocket
+                            if (wsRef.current) {
+                              wsRef.current.close()
+                              wsRef.current = null
+                            }
                             setExploitingService(null)
                             setIsExploiting(false)
                             setExploitationId(null)
                             setTerminalLines([])
-                            setLastLogIndex(0)
                             setCommandInput('')
-                            // 🗑️ Clear localStorage when exiting
-                            localStorage.removeItem('currentRedAgentExploitation')
-                            console.log('🗑️ [CLEANUP] Cleared exploitation state from localStorage')
                           }}
                           className="flex-1 px-4 py-3 bg-slate-700/50 hover:bg-slate-700 text-slate-200 rounded-lg transition-all font-bold"
                         >
@@ -795,55 +718,26 @@ export function RedAgentDashboard() {
                               }
 
                               setTerminalLines([])
-                              addTerminalLine('info', `🚀 Starting exploitation on ${exploitingService.ip}:${exploitingService.port}`)
-                              addTerminalLine('info', `🔌 Connecting to backend API...`)
+                              setIsExploiting(true)
+                              const expId = `${exploitingService.ip}_${exploitingService.port}_${Date.now()}`
+                              setExploitationId(expId)
 
-                              try {
-                                console.log('🔵 Calling startExploitation API...')
-                                const response = await startExploitation(exploitingService)
-
-                                console.log('🟢 API Response received:', response)
-
-                                if (!response) {
-                                  throw new Error('API returned undefined response')
-                                }
-
-                                if (!response.exploitation_id) {
-                                  throw new Error('Response missing exploitation_id field')
-                                }
-
-                                addTerminalLine('success', `✅ Exploitation workflow started`)
-                                addTerminalLine('info', `📝 Exploitation ID: ${response.exploitation_id}`)
-                                addTerminalLine('info', `🔌 Connecting to real-time log stream...`)
-
-                                // Set exploitation ID to trigger polling via useEffect
-                                const newExploitationId = response.exploitation_id
-                                setExploitationId(newExploitationId)
-                                setLastLogIndex(0) // Reset log index for new exploitation
-                                addTerminalLine('success', `✅ HTTP polling started - logs will appear in real-time`)
-                                setIsExploiting(true)
-
-                                // 💾 Save exploitation state to localStorage for persistence
-                                const exploitationState = {
-                                  exploitationId: newExploitationId,
-                                  targetService: exploitingService,
-                                  startedAt: new Date().toISOString()
-                                }
-                                localStorage.setItem('currentRedAgentExploitation', JSON.stringify(exploitationState))
-                                console.log('💾 [SAVE] Exploitation state saved to localStorage:', exploitationState)
-
-                              } catch (error: any) {
-                                const errorMsg = error?.message || String(error)
-                                console.error('🔴 Error starting exploitation:', errorMsg, error)
-
-                                // Only add if not already added by the API service
-                                if (!errorMsg.includes('API') && !errorMsg.includes('Connection')) {
-                                  addTerminalLine('error', `❌ ${errorMsg}`)
-                                }
-
+                              // Start exploitation in background
+                              fetch('http://localhost:8000/api/meterpreter/start-exploitation', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  exploitation_id: expId,
+                                  target_ip: exploitingService.ip,
+                                  target_port: exploitingService.port
+                                })
+                              }).catch(error => {
+                                addTerminalLine('error', `❌ Exploitation failed: ${error}`)
                                 setIsExploiting(false)
-                                setExploitationId(null)
-                              }
+                              })
+
+                              // Connect WebSocket immediately to stream output in real-time
+                              connectWebSocket(expId)
                             }}
                             className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                           >
@@ -853,18 +747,13 @@ export function RedAgentDashboard() {
                         ) : (
                           <button
                             onClick={async () => {
-                              if (!exploitationId) return
-                              try {
-                                await stopExploitation(exploitationId)
-                                setIsExploiting(false)
-                                addTerminalLine('warning', `⚠️ Exploitation stopped by user`)
-                                // 🗑️ Clear localStorage when stopped
-                                localStorage.removeItem('currentRedAgentExploitation')
-                                console.log('🗑️ [CLEANUP] Cleared exploitation state on stop')
-                              } catch (error) {
-                                console.error('❌ Error stopping exploitation:', error)
-                                addTerminalLine('error', `❌ Failed to stop exploitation: ${error}`)
+                              // Cleanup WebSocket
+                              if (wsRef.current) {
+                                wsRef.current.close()
+                                wsRef.current = null
                               }
+                              setIsExploiting(false)
+                              addTerminalLine('warning', `⚠️ Exploitation stopped by user`)
                             }}
                             className="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                           >
@@ -907,7 +796,10 @@ export function RedAgentDashboard() {
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => setShowServices(true)}
+                            onClick={() => {
+                              setShowServices(true)
+                              setActiveStep(2)
+                            }}
                             className="mx-auto bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-4 px-8 rounded-lg transition-all duration-300 flex items-center gap-3 text-lg"
                           >
                             <Zap className="w-6 h-6" />
@@ -1051,7 +943,10 @@ export function RedAgentDashboard() {
 
                                       {/* Exploit Button */}
                                       <button
-                                        onClick={() => handleServiceToggle(service)}
+                                        onClick={() => {
+                                          handleServiceToggle(service)
+                                          setActiveStep(3)
+                                        }}
                                         className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                                       >
                                         <Flame className="w-5 h-5" />
@@ -1064,7 +959,10 @@ export function RedAgentDashboard() {
                                 {/* Exploit Button (Always visible) */}
                                 {!expandedService?.includes(`${service.ip}:${service.port}`) && (
                                   <button
-                                    onClick={() => handleServiceToggle(service)}
+                                    onClick={() => {
+                                      handleServiceToggle(service)
+                                      setActiveStep(3)
+                                    }}
                                     className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                                   >
                                     <Flame className="w-5 h-5" />
@@ -1187,10 +1085,19 @@ export function RedAgentDashboard() {
                 </div>
 
                 <div className="flex justify-between space-x-3 pt-4 border-t border-slate-700/50">
-                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                  <Button variant="outline" onClick={() => {
+                    setCurrentStep(1)
+                    // If step 3 is red, change it back to step 1 red
+                    if (activeStep === 3) {
+                      setActiveStep(1)
+                    }
+                  }}>
                     Back
                   </Button>
-                  <Button onClick={() => setCurrentStep(3)} disabled={selectedServices.length === 0} className="bg-red-600 hover:bg-red-700">
+                  <Button onClick={() => {
+                    setCurrentStep(3)
+                    setActiveStep(3)
+                  }} disabled={selectedServices.length === 0} className="bg-red-600 hover:bg-red-700">
                     <Play className="w-4 h-4 mr-2" />
                     Start Exploitation ({selectedServices.length} selected)
                   </Button>
@@ -1273,46 +1180,56 @@ export function RedAgentDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="h-80 overflow-y-auto bg-black/95 rounded-b-lg p-4 font-mono text-xs space-y-1 border-t border-slate-700/50">
+                  <div className="h-80 overflow-y-auto bg-black/95 rounded-b-lg p-4 font-mono text-xs border-t border-slate-700/50" style={{ scrollBehavior: 'smooth' }}>
                     {terminalLines.length === 0 ? (
                       <div className="text-slate-500 flex items-center justify-center h-full flex-col gap-2">
                         <Terminal className="w-8 h-8 opacity-30" />
                         <span className="animate-pulse text-sm">Waiting to start exploitation...</span>
                       </div>
                     ) : (
-                      terminalLines.map((line) => (
-                        <motion.div
-                          key={line.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className={`flex items-start space-x-3 py-0.5 ${
-                            line.type === "error"
-                              ? "text-red-400"
-                              : line.type === "success"
-                                ? "text-green-400"
-                                : line.type === "warning"
-                                  ? "text-yellow-400"
-                                  : line.type === "exploit"
-                                    ? "text-lime-400 font-bold"
-                                    : "text-cyan-400"
-                          }`}
-                        >
-                          <span className="text-slate-600 flex-shrink-0 w-20">{line.timestamp}</span>
-                          <span className={`flex-shrink-0 w-12 ${
-                            line.type === "error"
-                              ? "text-red-500"
-                              : line.type === "success"
-                                ? "text-green-500"
-                                : line.type === "warning"
-                                  ? "text-yellow-500"
-                                  : line.type === "exploit"
-                                    ? "text-lime-500 font-bold"
-                                    : "text-cyan-500"
-                          }`}>[{line.type.toUpperCase()}]</span>
-                          <span className="flex-1 break-words">{line.content}</span>
-                        </motion.div>
-                      ))
+                      <div className="space-y-1">
+                        {terminalLines.map((line, idx) => {
+                          const isNewLine = idx >= terminalLines.length - 3  // Only animate last 3 lines
+                          const typeColor = {
+                            "error": "text-red-400",
+                            "success": "text-green-400",
+                            "warning": "text-yellow-400",
+                            "exploit": "text-lime-400 font-bold",
+                            "info": "text-cyan-400"
+                          }[line.type] || "text-cyan-400"
+
+                          const typeColorBold = {
+                            "error": "text-red-500",
+                            "success": "text-green-500",
+                            "warning": "text-yellow-500",
+                            "exploit": "text-lime-500 font-bold",
+                            "info": "text-cyan-500"
+                          }[line.type] || "text-cyan-500"
+
+                          return isNewLine ? (
+                            <motion.div
+                              key={line.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className={`flex items-start space-x-3 py-0.5 ${typeColor}`}
+                            >
+                              <span className="text-slate-600 flex-shrink-0 w-20">{line.timestamp}</span>
+                              <span className={`flex-shrink-0 w-12 ${typeColorBold}`}>[{line.type.toUpperCase()}]</span>
+                              <span className="flex-1 break-words">{line.content}</span>
+                            </motion.div>
+                          ) : (
+                            <div
+                              key={line.id}
+                              className={`flex items-start space-x-3 py-0.5 ${typeColor}`}
+                            >
+                              <span className="text-slate-600 flex-shrink-0 w-20">{line.timestamp}</span>
+                              <span className={`flex-shrink-0 w-12 ${typeColorBold}`}>[{line.type.toUpperCase()}]</span>
+                              <span className="flex-1 break-words">{line.content}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -1324,9 +1241,7 @@ export function RedAgentDashboard() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setCurrentStep(2)
-                      setIsExploiting(false)
-                      setTerminalLines([])
+                      setActiveStep(1)
                     }}
                   >
                     Back

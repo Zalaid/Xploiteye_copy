@@ -28,9 +28,6 @@ except ImportError as e:
     run_workflow = None
     RedAgentState = None
 
-# Import logging utilities
-from .log_broadcaster import setup_socket_logging, remove_socket_logging
-
 from app.models.user import UserInDB
 from app.database.mongodb import get_database
 
@@ -144,18 +141,9 @@ class RedAgentService:
         user: UserInDB
     ):
         """Execute the red agent workflow"""
-        socket_handler = None
         print(f"\n\n=== WORKFLOW STARTED FOR {exploitation_id} ===")
         try:
             logger.info(f"Starting exploitation workflow: {exploitation_id}")
-
-            # Setup Socket.io logging (sends logs to Socket.io server via HTTP)
-            socket_handler = setup_socket_logging(
-                logger,
-                exploitation_id,
-                socket_server_url="http://localhost:5001"
-            )
-            logger.info(f"✅ Socket.io logging initialized for {exploitation_id}")
 
             # Log exploitation start
             logger.info(f"🚀 Starting exploitation on {target}:{port}")
@@ -163,26 +151,6 @@ class RedAgentService:
             if cve_ids:
                 logger.info(f"🎯 CVEs: {', '.join(cve_ids)}")
 
-            # Broadcast status to frontend via HTTP
-            try:
-                import requests
-                await asyncio.sleep(0.1)  # Small delay to ensure subscription
-                requests.post(
-                    "http://localhost:5001/api/broadcast-status",
-                    json={
-                        "exploitation_id": exploitation_id,
-                        "status": "running",
-                        "completed": 0,
-                        "running": 1,
-                        "pending": 0,
-                        "root_access": 0,
-                        "sessions_opened": 0,
-                        "progress": 0
-                    },
-                    timeout=2
-                )
-            except Exception as e:
-                logger.debug(f"Could not broadcast status: {e}")
 
             # Prepare initial state
             initial_state = {
@@ -274,10 +242,7 @@ class RedAgentService:
                 error=error_msg
             )
         finally:
-            # Cleanup socket logging
-            if socket_handler:
-                remove_socket_logging(logger, socket_handler)
-                logger.debug(f"Socket.io logging handler removed for {exploitation_id}")
+            pass
 
     async def _update_exploitation_status(
         self,
