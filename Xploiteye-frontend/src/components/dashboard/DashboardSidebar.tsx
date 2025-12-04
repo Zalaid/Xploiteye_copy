@@ -30,6 +30,7 @@ interface DashboardSidebarProps {
 const menuItems = [
   { icon: Home, label: "Dashboard", href: "/dashboard", roles: ["admin", "analyst", "viewer"] },
   { icon: Search, label: "Network Scanning", href: "/dashboard/scanning", roles: ["admin", "analyst", "viewer"] },
+  { icon: Globe, label: "Web Scanning", href: "/dashboard/web-scanning", roles: ["admin", "analyst", "viewer"] },
   {
     icon: TrendingUp,
     label: "Vulnerability Analysis",

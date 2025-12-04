@@ -37,6 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RealTimeScanProgress } from "@/components/dashboard/RealTimeScanProgress"
 import { NetworkDiscoveryResults } from "@/components/dashboard/NetworkDiscoveryResults"
 import { PortDiscoveryResults } from "@/components/dashboard/PortDiscoveryResults"
+import { WebScanning } from "@/components/dashboard/WebScanning"
 import { startNetworkDiscovery, NetworkDiscoveryData } from "@/services/networkDiscoveryApi"
 import { startPortDiscovery, PortDiscoveryData, GPTAnalysis } from "@/services/portDiscoveryApi"
 // import { EnhancedTerminalOutput } from "@/components/dashboard/EnhancedTerminalOutput"
@@ -3182,14 +3183,21 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
 
       {selectedScanMode !== 'network-discovery' && selectedScanMode !== 'specific-port' && (
-        <Tabs defaultValue="exploits" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-900/50 border border-gray-800">
+        <Tabs defaultValue="web-scanning" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-900/50 border border-gray-800">
+            <TabsTrigger
+              value="web-scanning"
+              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
+            >
+              <Globe className="w-4 h-4 mr-2" />
+              Web Scanning
+            </TabsTrigger>
             <TabsTrigger
               value="exploits"
               className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400"
             >
               <Bug className="w-4 h-4 mr-2" />
-              CVE Exploitability Matrix
+              CVE Matrix
             </TabsTrigger>
             <TabsTrigger
               value="history"
@@ -3199,6 +3207,13 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               History
             </TabsTrigger>
           </TabsList>
+
+        <TabsContent value="web-scanning" className="space-y-6">
+          <WebScanning onScanStart={(url, config) => {
+            console.log('Web Scan Started:', { url, config })
+            setActiveScan({ type: 'web', url, config })
+          }} />
+        </TabsContent>
 
         <TabsContent value="exploits" className="space-y-6">
           <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-green-500/20">
