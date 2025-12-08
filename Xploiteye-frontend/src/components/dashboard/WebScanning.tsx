@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Globe, Zap, AlertCircle, CheckCircle2, Search, Shield } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,9 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { dvwaApi } from '@/services/dvwaApi'
+import { useAuth } from '@/auth/AuthContext'
+import { DVWAScanResults } from './DVWAScanResults'
+import { DVWAScanResult } from '@/services/dvwaApi'
 
 interface WebScanningProps {
   onScanStart?: (url: string, config: ScanConfig) => void
+  onExploit?: (vulnerability: any) => void
 }
 
 interface ScanConfig {
@@ -25,13 +30,18 @@ const labEnvironments = [
   { id: 'mutillidae', name: 'Mutillidae', description: 'Free, open-source vulnerable web app' },
 ]
 
-export function WebScanning({ onScanStart }: WebScanningProps) {
+export function WebScanning({ onScanStart, onExploit }: WebScanningProps) {
+  const { apiCall } = useAuth()
   const [url, setUrl] = useState('')
   const [isLive, setIsLive] = useState(false)
   const [isLab, setIsLab] = useState(true)
   const [selectedLabs, setSelectedLabs] = useState<string[]>([])
   const [urlError, setUrlError] = useState('')
   const [isScanning, setIsScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<DVWAScanResult | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [currentVulnIndex, setCurrentVulnIndex] = useState(0)
 
   const validateURL = (input: string): boolean => {
     try {
@@ -49,7 +59,7 @@ export function WebScanning({ onScanStart }: WebScanningProps) {
     )
   }
 
-  const handleScan = () => {
+  const handleScan = async () => {
     // Validation
     if (!isLive && !isLab) {
       setUrlError('Please select at least one scan mode (Live or Lab)')
@@ -76,27 +86,52 @@ export function WebScanning({ onScanStart }: WebScanningProps) {
 
     setUrlError('')
     setIsScanning(true)
+    setScanError(null)
+    setScanResult(null)
 
-    // Call parent handler
-    if (onScanStart) {
-      let scanUrl = url.trim()
-      if (isLive && scanUrl) {
-        scanUrl = scanUrl.startsWith('http') ? scanUrl : `http://${scanUrl}`
-      } else if (isLab && !isLive) {
-        scanUrl = selectedLabs.map((id) => labEnvironments.find((e) => e.id === id)?.name).join(', ')
+    try {
+      // Initialize API call if needed
+      if (apiCall) {
+        dvwaApi.setApiCall(apiCall)
       }
 
-      onScanStart(scanUrl, {
-        isLive,
-        isLab,
-        labEnvironments: selectedLabs,
-      })
-    }
+      // For DVWA scans
+      if (isLab && selectedLabs.includes('dvwa')) {
+        // Use DVWA default target (backend returns mock/sample data)
+        const dvwaTarget = 'http://192.168.0.176/dvwa'
 
-    // Reset after 2 seconds for demo
-    setTimeout(() => {
-      setIsScanning(false)
-    }, 2000)
+        const response = await dvwaApi.startDVWAScan(
+          dvwaTarget,
+          'dvwa'
+        )
+
+        if (response.data) {
+          setScanResult(response.data)
+          // Complete the progress bar
+          setProgress(100)
+        }
+
+        // Call parent handler
+        if (onScanStart) {
+          onScanStart('DVWA', {
+            isLive: false,
+            isLab: true,
+            labEnvironments: selectedLabs,
+          })
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setScanError(errorMessage)
+      console.error('Scan error:', errorMessage)
+    } finally {
+      // Reset progress states after a delay
+      setTimeout(() => {
+        setIsScanning(false)
+        setProgress(0)
+        setCurrentVulnIndex(0)
+      }, 500)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -104,6 +139,29 @@ export function WebScanning({ onScanStart }: WebScanningProps) {
       handleScan()
     }
   }
+
+  // Simulate progress updates during scanning
+  useEffect(() => {
+    if (!isScanning) return
+
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev < 95) {
+          const increment = Math.random() * 15
+          return Math.min(prev + increment, 95)
+        }
+        return prev
+      })
+
+      // Update vulnerability being scanned
+      setCurrentVulnIndex((prev) => {
+        if (prev < 6) return prev + 1
+        return 6
+      })
+    }, 800)
+
+    return () => clearInterval(interval)
+  }, [isScanning])
 
   return (
     <div className="space-y-6">
@@ -293,6 +351,18 @@ export function WebScanning({ onScanStart }: WebScanningProps) {
               </motion.div>
             )}
 
+            {/* Scan Error */}
+            {scanError && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center space-x-2 text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg p-3"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{scanError}</span>
+              </motion.div>
+            )}
+
             {/* Scan Button */}
             <motion.div
               whileHover={{ scale: 1.02 }}
@@ -322,46 +392,111 @@ export function WebScanning({ onScanStart }: WebScanningProps) {
               </Button>
             </motion.div>
 
-            {/* Info Box */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start space-x-3"
-            >
-              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-300 space-y-1">
-                <p className="font-medium">Scan Information</p>
-                <ul className="text-xs space-y-1 text-blue-200/80">
-                  <li>• <span className="font-medium">Live Mode:</span> Scan production targets (requires authorization)</li>
-                  <li>• <span className="font-medium">Lab Mode:</span> Scan DVWA, Juice Shop, or Mutillidae environments</li>
-                  <li>• Select at least one mode to proceed</li>
-                </ul>
-              </div>
-            </motion.div>
+            {/* Progress Bar - Show during scanning */}
+            <AnimatePresence>
+              {isScanning && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-300">
+                        Scanning Vulnerabilities...
+                      </p>
+                      <p className="text-sm font-semibold text-blue-400">
+                        {Math.round(progress)}%
+                      </p>
+                    </div>
+
+                    {/* Progress Bar Background */}
+                    <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden border border-gray-700/50">
+                      {/* Animated Progress Fill */}
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                      />
+                    </div>
+
+                    {/* Scanning Status */}
+                    <div className="text-xs text-gray-400 flex items-center gap-2">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      >
+                        <Zap className="w-3 h-3 text-yellow-400" />
+                      </motion.div>
+                      <span>
+                        Scanning vulnerabilities...
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Current Vulnerability Being Scanned */}
+                  <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                      Currently Testing
+                    </p>
+                    <p className="text-sm text-gray-200 mt-1 font-mono">
+                      {(() => {
+                        const vulns = [
+                          'Command Execution (RCE)',
+                          'Cross-Site Request Forgery (CSRF)',
+                          'SQL Injection',
+                          'Blind SQL Injection',
+                          'Reflected XSS',
+                          'Stored XSS',
+                          'File Inclusion (LFI/RFI)',
+                        ]
+                        return vulns[currentVulnIndex] || 'Finalizing results...'
+                      })()}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Recent Scans Section (Optional) */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
-        <Card className="bg-gradient-to-br from-gray-900/30 to-gray-800/20 border-gray-700/50">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-sm">
-              <CheckCircle2 className="w-4 h-4 text-gray-400" />
-              <span>Scan Status</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center text-gray-400 py-6">
-              <p className="text-sm">No active scans. Select scan mode and configure above to begin.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Scan Results Section */}
+      {scanResult && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <DVWAScanResults result={scanResult} isLoading={false} onExploit={onExploit} />
+        </motion.div>
+      )}
+
+      {/* Recent Scans Section (when no results) */}
+      {!scanResult && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <Card className="bg-gradient-to-br from-gray-900/30 to-gray-800/20 border-gray-700/50">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-gray-400" />
+                <span>Scan Status</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center text-gray-400 py-6">
+                <p className="text-sm">No active scans. Select scan mode and configure above to begin.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </div>
   )
 }
