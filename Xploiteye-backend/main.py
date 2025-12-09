@@ -12,6 +12,7 @@ from config.settings import settings
 from config.logging_config import setup_uvicorn_logging, log_meaningful_startup, log_meaningful_shutdown
 from app.database.mongodb import connect_to_mongo, close_mongo_connection
 from app.routes import auth, dashboard, mfa, scanning, cve, email_verification, password_reset, dvwa_scanner
+from app.routes import ssh_exploit
 from app.payment import payment_router
 from app.redagentnetwork.routes.red_agent_routes import router as red_agent_router
 from app.blueagentnetwork.blue_agent_routes import router as blue_agent_router
@@ -67,6 +68,7 @@ app.include_router(dashboard.router)
 app.include_router(scanning.router)
 app.include_router(cve.router)
 app.include_router(dvwa_scanner.router, prefix="/api")  # DVWA Scanner routes
+app.include_router(ssh_exploit.router)
 app.include_router(payment_router)             # Payment routes
 app.include_router(red_agent_router, prefix="/api/red-agent")  # Red Agent exploitation routes
 app.include_router(blue_agent_router)  # Blue Agent remediation routes

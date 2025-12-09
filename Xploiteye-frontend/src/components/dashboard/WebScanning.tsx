@@ -16,6 +16,7 @@ import { DVWAScanResult } from '@/services/dvwaApi'
 interface WebScanningProps {
   onScanStart?: (url: string, config: ScanConfig) => void
   onExploit?: (vulnerability: any) => void
+  onScanComplete?: (vulnerabilities: any[]) => void
 }
 
 interface ScanConfig {
@@ -30,7 +31,7 @@ const labEnvironments = [
   { id: 'mutillidae', name: 'Mutillidae', description: 'Free, open-source vulnerable web app' },
 ]
 
-export function WebScanning({ onScanStart, onExploit }: WebScanningProps) {
+export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScanningProps) {
   const { apiCall } = useAuth()
   const [url, setUrl] = useState('')
   const [isLive, setIsLive] = useState(false)
@@ -109,6 +110,11 @@ export function WebScanning({ onScanStart, onExploit }: WebScanningProps) {
           setScanResult(response.data)
           // Complete the progress bar
           setProgress(100)
+
+          // Call scan complete callback with all vulnerabilities
+          if (onScanComplete) {
+            onScanComplete(response.data.vulnerabilities)
+          }
         }
 
         // Call parent handler

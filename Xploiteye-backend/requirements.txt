@@ -29,6 +29,7 @@ langchain-core
 langchain-openai
 langgraph
 python-nmap>=0.7.0
+paramiko>=3.0.0
 
 # ISO Report Generation (New)
 reportlab>=3.6.0  # PDF generation with advanced graphics
