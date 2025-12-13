@@ -13,7 +13,7 @@ from app.services.chat_session_service import ChatSessionService
 from app.models.chat import ChatQueryRequest, UploadPDFRequest
 from app.models.user import UserInDB
 from app.auth.dependencies import get_current_active_user
-from app.database.mongodb import get_db
+from app.database.mongodb import get_database
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -30,7 +30,7 @@ chatbot_instances = {}
 async def upload_pdf(
     file: UploadFile = File(...),
     user: UserInDB = Depends(get_current_active_user),
-    db=Depends(get_db)
+    db=Depends(get_database)
 ):
     """Upload XploitEye scan/exploitation report PDF for analysis"""
     try:
@@ -80,7 +80,7 @@ async def upload_pdf(
 
 
 @router.post("/query/")
-async def query_pdf(request: ChatQueryRequest, db=Depends(get_db)):
+async def query_pdf(request: ChatQueryRequest, db=Depends(get_database)):
     """Ask question about uploaded PDF"""
     try:
         session_id = request.session_id.strip()
@@ -129,7 +129,7 @@ async def query_pdf(request: ChatQueryRequest, db=Depends(get_db)):
 
 
 @router.get("/history/")
-async def get_history(session_id: str, db=Depends(get_db)):
+async def get_history(session_id: str, db=Depends(get_database)):
     """Get conversation history"""
     try:
         session_service = ChatSessionService(db)
@@ -159,7 +159,7 @@ async def get_history(session_id: str, db=Depends(get_db)):
 
 
 @router.post("/clear-session/")
-async def clear_session(session_id: str, db=Depends(get_db)):
+async def clear_session(session_id: str, db=Depends(get_database)):
     """Clear chat session"""
     try:
         session_service = ChatSessionService(db)
@@ -182,7 +182,7 @@ async def clear_session(session_id: str, db=Depends(get_db)):
 
 
 @router.get("/user-sessions/")
-async def get_user_sessions(user_id: str, db=Depends(get_db)):
+async def get_user_sessions(user_id: str, db=Depends(get_database)):
     """Get all sessions for a user (chat history)"""
     try:
         session_service = ChatSessionService(db)

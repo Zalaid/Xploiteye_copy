@@ -14,7 +14,7 @@ from app.services.voice_service import VoiceService
 from app.services.translation_service import TranslationService
 from app.services.chat_session_service import ChatSessionService
 from app.models.chat import ChatQueryRequest
-from app.database.mongodb import get_db
+from app.database.mongodb import get_database
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class TranslateRequest(BaseModel):
 
 
 @router.post("/unified-query/")
-async def unified_query(request: UnifiedQueryRequest, db=Depends(get_db)):
+async def unified_query(request: UnifiedQueryRequest, db=Depends(get_database)):
     """Smart query routing between Chatbot and RAG"""
     try:
         session_id = request.session_id
@@ -124,7 +124,7 @@ async def voice_query(
     audio: UploadFile = File(...),
     session_id: Optional[str] = None,
     forced_route: Optional[str] = None,
-    db=Depends(get_db)
+    db=Depends(get_database)
 ):
     """Query with voice input (converts to text then routes)"""
     try:
