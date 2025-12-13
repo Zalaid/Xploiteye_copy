@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     langsmith_api_key: str = Field(default="")
     langsmith_project: str = Field(default="netscan")
 
+    # Qdrant Vector Database Configuration
+    qdrant_url: str = Field(default="http://localhost:6333")
+    qdrant_api_key: str = Field(default="")
+
     # Scanning Directories
     results_dir: str = Field(default="/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/scanning_results")
     reports_dir: str = Field(default="/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/scanning_reports")

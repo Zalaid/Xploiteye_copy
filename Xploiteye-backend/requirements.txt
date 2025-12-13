@@ -27,9 +27,13 @@ matplotlib
 seaborn
 langchain-core
 langchain-openai
+langchain-community>=0.0.10
+langchain-qdrant
+qdrant-client>=2.0.0
 langgraph
 python-nmap>=0.7.0
 paramiko>=3.0.0
+pexpect>=4.8.0
 
 # ISO Report Generation (New)
 reportlab>=3.6.0  # PDF generation with advanced graphics
