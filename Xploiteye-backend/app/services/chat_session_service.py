@@ -22,7 +22,8 @@ class ChatSessionService:
         self,
         user_id: Optional[str],
         filename: str,
-        pdf_content_preview: str
+        pdf_content_preview: str,
+        pdf_content_full: Optional[str] = None
     ) -> str:
         """Create new chat session"""
         session_id = str(uuid.uuid4())
@@ -32,6 +33,7 @@ class ChatSessionService:
             "user_id": user_id,
             "filename": filename,
             "pdf_content_preview": pdf_content_preview[:500],  # Store first 500 chars
+            "pdf_content_full": pdf_content_full,  # Store full content for chatbot recreation
             "conversation_history": [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
