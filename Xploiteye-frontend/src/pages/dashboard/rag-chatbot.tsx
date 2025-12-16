@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { chatbotAPI, ChatSession } from '@/lib/api/chatbot'
+import { useAuth } from '@/auth/AuthContext'
 
 interface Message {
   id: string
@@ -29,6 +30,9 @@ const quickActions = [
 ]
 
 export function RAGChatbotEnhancedPage() {
+  // Get auth context
+  const { user } = useAuth()
+
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)
@@ -63,10 +67,18 @@ export function RAGChatbotEnhancedPage() {
     scrollToBottom()
   }, [messages])
 
+  // Set JWT token on mount and when auth changes
+  useEffect(() => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+    if (token) {
+      chatbotAPI.setToken(token)
+    }
+  }, [user])
+
   // Load user sessions on mount
   useEffect(() => {
     loadSessions()
-  }, [])
+  }, [user])
 
   const loadSessions = async () => {
     try {
