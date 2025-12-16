@@ -96,29 +96,12 @@ async def query_pdf(request: ChatQueryRequest, db=Depends(get_database)):
                 detail="session_id required"
             )
 
-        # Get chatbot instance
+        # Get chatbot instance - must exist from upload
         if session_id not in chatbot_instances:
-            # Recreate from session data
-            session_service = ChatSessionService(db)
-            session = await session_service.get_session(session_id)
-            if not session:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid session. Please upload PDF again"
-                )
-
-            # Recreate chatbot with stored PDF content
-            chatbot = SecurityPDFChatbot(openai_api_key=OPENAI_API_KEY)
-            pdf_content_full = session.get("pdf_content_full")
-            if pdf_content_full:
-                # Set the PDF content directly from stored data
-                chatbot.pdf_content = pdf_content_full
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="PDF content not found in session. Please upload again."
-                )
-            chatbot_instances[session_id] = chatbot
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Session not found. Please upload a PDF first."
+            )
 
         chatbot = chatbot_instances[session_id]
         result = chatbot.ask(request.question)

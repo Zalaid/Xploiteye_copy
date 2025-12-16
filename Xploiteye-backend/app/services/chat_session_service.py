@@ -32,8 +32,9 @@ class ChatSessionService:
             "session_id": session_id,
             "user_id": user_id,
             "filename": filename,
-            "pdf_content_preview": pdf_content_preview[:500],  # Store first 500 chars
-            "pdf_content_full": pdf_content_full,  # Store full content for chatbot recreation
+            "pdf_content_preview": pdf_content_preview[:500],  # Store first 500 chars only
+            # NOTE: Full PDF content is NOT stored in MongoDB to avoid size issues
+            # It stays in memory via chatbot_instances dictionary in the routes
             "conversation_history": [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
