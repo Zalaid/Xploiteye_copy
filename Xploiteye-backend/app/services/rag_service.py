@@ -5,6 +5,7 @@ RAG Service - Semantic search over SherlockDroid documentation
 import os
 import logging
 from typing import Dict, List, Any, Optional
+from pathlib import Path
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,12 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class RAGRetriever:
-    """Retrieves and answers questions using SherlockDroid documentation"""
+    """Retrieves and answers questions using XploitEye documentation"""
 
     def __init__(self):
         self.qdrant_url = os.getenv('QDRANT_URL')
         self.qdrant_api_key = os.getenv('QDRANT_API_KEY')
         self.openai_api_key = os.getenv('OPENAI_API_KEY_2') or os.getenv('OPENAI_API_KEY')
+        self.collection_name = "xploiteye_docs"
+        self.docs_dir = "/home/kali/Desktop/XploitEye-copy/Xploiteye_copy/Xploiteye-backend/app/rag./rag/docs"
 
         if not all([self.qdrant_url, self.qdrant_api_key, self.openai_api_key]):
             logger.warning("RAG not fully configured - some env vars missing")
@@ -37,13 +40,22 @@ class RAGRetriever:
                 openai_api_key=self.openai_api_key
             )
 
-            self.collection_name = "xploiteye_docs"
-
-            self.vector_store = QdrantVectorStore(
-                client=self.qdrant_client,
-                collection_name=self.collection_name,
-                embedding=self.embeddings
-            )
+            # Check if collection already has embeddings
+            if self._collection_exists_and_has_data():
+                logger.info(f"✅ Collection '{self.collection_name}' already populated with embeddings")
+                self.vector_store = QdrantVectorStore(
+                    client=self.qdrant_client,
+                    collection_name=self.collection_name,
+                    embedding=self.embeddings
+                )
+            else:
+                logger.info(f"📚 Collection '{self.collection_name}' not found or empty. Embedding documentation...")
+                self._embed_documentation()
+                self.vector_store = QdrantVectorStore(
+                    client=self.qdrant_client,
+                    collection_name=self.collection_name,
+                    embedding=self.embeddings
+                )
 
             self.llm = ChatOpenAI(
                 model="gpt-4o-mini",
@@ -57,6 +69,80 @@ class RAGRetriever:
         except Exception as e:
             logger.error(f"RAG initialization failed: {str(e)}")
             self.available = False
+
+    def _collection_exists_and_has_data(self) -> bool:
+        """Check if Qdrant collection exists and has vectors"""
+        try:
+            collection_info = self.qdrant_client.get_collection(self.collection_name)
+            has_data = collection_info.points_count > 0
+            logger.info(f"Collection '{self.collection_name}' has {collection_info.points_count} vectors")
+            return has_data
+        except Exception as e:
+            logger.info(f"Collection check: {str(e)}")
+            return False
+
+    def _embed_documentation(self):
+        """Load and embed all PDFs from docs folder"""
+        try:
+            from langchain_community.document_loaders import PyPDFLoader
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+            docs_path = Path(self.docs_dir)
+            if not docs_path.exists():
+                logger.error(f"Documentation directory not found: {self.docs_dir}")
+                return
+
+            # Get all PDF files
+            pdf_files = list(docs_path.glob("*.pdf"))
+            if not pdf_files:
+                logger.warning(f"No PDF files found in {self.docs_dir}")
+                return
+
+            logger.info(f"Found {len(pdf_files)} PDF files to embed")
+
+            # Load all documents
+            all_documents = []
+            for pdf_file in pdf_files:
+                try:
+                    logger.info(f"Loading: {pdf_file.name}")
+                    loader = PyPDFLoader(str(pdf_file))
+                    pages = loader.load()
+                    all_documents.extend(pages)
+                    logger.info(f"✅ Loaded {len(pages)} pages from {pdf_file.name}")
+                except Exception as e:
+                    logger.error(f"Failed to load {pdf_file.name}: {str(e)}")
+
+            if not all_documents:
+                logger.error("No documents loaded from PDFs")
+                return
+
+            logger.info(f"Splitting {len(all_documents)} pages into chunks...")
+
+            # Split documents into chunks
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=500,
+                chunk_overlap=100,
+                separators=["\n\n", "\n", " ", ""]
+            )
+            chunks = splitter.split_documents(all_documents)
+            logger.info(f"Created {len(chunks)} chunks")
+
+            # Embed and store in Qdrant
+            logger.info(f"Embedding {len(chunks)} chunks and storing in Qdrant...")
+            QdrantVectorStore.from_documents(
+                chunks,
+                self.embeddings,
+                url=self.qdrant_url,
+                api_key=self.qdrant_api_key,
+                collection_name=self.collection_name,
+                batch_size=10
+            )
+
+            logger.info(f"✅ Successfully embedded all documentation!")
+
+        except Exception as e:
+            logger.error(f"Documentation embedding failed: {str(e)}")
+            raise
 
     def query(self, user_query: str, top_k: int = 5) -> Dict[str, Any]:
         """Query documentation and generate answer"""
