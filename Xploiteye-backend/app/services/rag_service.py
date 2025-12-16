@@ -51,11 +51,16 @@ class RAGRetriever:
             else:
                 logger.info(f"📚 Collection '{self.collection_name}' not found or empty. Embedding documentation...")
                 self._embed_documentation()
-                self.vector_store = QdrantVectorStore(
-                    client=self.qdrant_client,
-                    collection_name=self.collection_name,
-                    embedding=self.embeddings
-                )
+                # After embedding, create vector store
+                try:
+                    self.vector_store = QdrantVectorStore(
+                        client=self.qdrant_client,
+                        collection_name=self.collection_name,
+                        embedding=self.embeddings
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not create vector store immediately after embedding: {str(e)}. Will retry on first query.")
+                    self.vector_store = None
 
             self.llm = ChatOpenAI(
                 model="gpt-4o-mini",
@@ -147,12 +152,12 @@ class RAGRetriever:
     def query(self, user_query: str, top_k: int = 5) -> Dict[str, Any]:
         """Query documentation and generate answer"""
 
-        if not self.available:
+        if not self.available or not self.vector_store:
             return {
-                "answer": "RAG service not available. Please check Qdrant connection.",
+                "answer": "RAG service not available. Qdrant vector store not initialized. Please check Qdrant connection and ensure documentation has been embedded.",
                 "sources": [],
                 "context_used": False,
-                "query_analysis": {"error": "Service unavailable"}
+                "query_analysis": {"error": "Service unavailable - vector store not initialized"}
             }
 
         try:

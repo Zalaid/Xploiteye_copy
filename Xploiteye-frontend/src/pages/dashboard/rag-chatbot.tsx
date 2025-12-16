@@ -5,7 +5,7 @@ import Head from 'next/head';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Send, Bot, User, Shield, Search, BookOpen, AlertTriangle, Copy, ThumbsUp, ThumbsDown, Upload, Mic, Globe, Trash2, Plus, X } from "lucide-react"
+import { Send, Bot, User, Shield, Search, BookOpen, AlertTriangle, Copy, ThumbsUp, ThumbsDown, Upload, Mic, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -72,11 +72,17 @@ export function RAGChatbotEnhancedPage() {
     try {
       setIsLoadingSessions(true)
       const result = await chatbotAPI.getUserSessions()
-      if (result.success) {
+      if (result.success && result.sessions) {
         setSessions(result.sessions)
       }
-    } catch (error) {
-      console.error('Failed to load sessions:', error)
+    } catch (error: any) {
+      // Silently fail if no auth (422, 401, etc) - user sessions are optional
+      if (error.response?.status === 422 || error.response?.status === 401) {
+        console.log('User sessions require authentication - skipping')
+        setSessions([])
+      } else {
+        console.error('Failed to load sessions:', error)
+      }
     } finally {
       setIsLoadingSessions(false)
     }
@@ -150,7 +156,7 @@ export function RAGChatbotEnhancedPage() {
         response = await chatbotAPI.queryRAG(content)
       } else {
         // Use unified routing
-        response = await chatbotAPI.unifiedQuery(content, currentSession)
+        response = await chatbotAPI.unifiedQuery(content, currentSession || undefined)
       }
 
       let botContent = response.answer || response.data?.answer || 'No response received'
@@ -187,12 +193,24 @@ export function RAGChatbotEnhancedPage() {
           setIsTranslating(false)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Query error:', error)
+      let errorContent = '❌ Error processing query. Please try again.'
+
+      if (error.response?.status === 422) {
+        errorContent = '⚠️ Invalid request. Check your input and try again.'
+      } else if (error.response?.status === 401) {
+        errorContent = '🔐 Authentication required. Please sign in.'
+      } else if (error.response?.status === 500) {
+        errorContent = '⚠️ Backend error. Please try again in a moment.'
+      } else if (error.message === 'Network Error') {
+        errorContent = '🌐 Cannot connect to server. Ensure backend is running on port 8000.'
+      }
+
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         type: "bot",
-        content: '❌ Error processing query. Please try again.',
+        content: errorContent,
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMsg])
@@ -260,7 +278,7 @@ export function RAGChatbotEnhancedPage() {
         const audioFile = new File([audioBlob], 'voice-query.mp3', { type: 'audio/mp3' })
 
         try {
-          const response = await chatbotAPI.voiceQuery(audioFile, currentSession)
+          const response = await chatbotAPI.voiceQuery(audioFile, currentSession || undefined)
           handleSendMessage(response.question || 'Voice query processed')
         } catch (error) {
           console.error('Voice query error:', error)

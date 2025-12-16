@@ -12,8 +12,8 @@ from app.services.chatbot_service import SecurityPDFChatbot
 from app.services.chat_session_service import ChatSessionService
 from app.models.chat import ChatQueryRequest, UploadPDFRequest
 from app.models.user import UserInDB
-from app.auth.dependencies import get_current_active_user
 from app.database.mongodb import get_database
+from app.auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -29,7 +29,7 @@ chatbot_instances = {}
 @router.post("/upload-pdf/")
 async def upload_pdf(
     file: UploadFile = File(...),
-    user: UserInDB = Depends(get_current_active_user),
+    current_user: UserInDB = Depends(get_current_user),
     db=Depends(get_database)
 ):
     """Upload XploitEye scan/exploitation report PDF for analysis"""
@@ -41,21 +41,21 @@ async def upload_pdf(
             )
 
         pdf_bytes = await file.read()
-        max_size = 10 * 1024 * 1024  # 10MB
+        max_size = 100 * 1024 * 1024  # 100MB
         if len(pdf_bytes) > max_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File too large (max 10MB)"
+                detail="File too large (max 100MB)"
             )
 
         # Initialize chatbot
         chatbot = SecurityPDFChatbot(openai_api_key=OPENAI_API_KEY)
         pdf_content = chatbot.load_pdf_from_bytes(pdf_bytes, file.filename)
 
-        # Create session
+        # Create session with authenticated user_id
         session_service = ChatSessionService(db)
         session_id = await session_service.create_session(
-            user_id=str(user.id) if hasattr(user, 'id') else user.user_id,
+            user_id=str(current_user.id),
             filename=file.filename,
             pdf_content_preview=pdf_content
         )
@@ -71,11 +71,16 @@ async def upload_pdf(
             "pdf_length": len(pdf_content)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Upload error: {str(e)}")
+        import traceback
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        logger.error(f"Upload error: {error_msg}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail=error_msg
         )
 
 
@@ -182,15 +187,18 @@ async def clear_session(session_id: str, db=Depends(get_database)):
 
 
 @router.get("/user-sessions/")
-async def get_user_sessions(user_id: str, db=Depends(get_database)):
+async def get_user_sessions(
+    current_user: UserInDB = Depends(get_current_user),
+    db=Depends(get_database)
+):
     """Get all sessions for a user (chat history)"""
     try:
         session_service = ChatSessionService(db)
-        sessions = await session_service.get_user_sessions(user_id)
+        sessions = await session_service.get_user_sessions(str(current_user.id))
 
         return {
             "success": True,
-            "user_id": user_id,
+            "user_id": str(current_user.id),
             "sessions": sessions,
             "total": len(sessions)
         }
