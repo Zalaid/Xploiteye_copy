@@ -1,0 +1,152 @@
+{
+    "apache": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2023-25690",
+                "title": "HTTP Request Smuggling via mod_proxy",
+                "severity": "High",
+                "affected_range": "<= 2.4.59",
+                "description": "Some mod_proxy configurations allow request smuggling via crafted HTTP headers."
+            },
+            {
+                "cve_id": "CVE-2024-38476",
+                "title": "Server-Side Request Forgery (SSRF) in mod_proxy",
+                "severity": "High",
+                "affected_range": "<= 2.4.59",
+                "description": "Vulnerability in core of Apache HTTP Server 2.4.59 and earlier."
+            },
+            {
+                "cve_id": "CVE-2022-31813",
+                "title": "Bypass of access controls via mod_proxy_ajp",
+                "severity": "High",
+                "affected_range": "<= 2.4.53",
+                "description": "Apache HTTP Server 2.4.53 and earlier may not send X-Forwarded-* headers to the origin server if mod_proxy is configured."
+            },
+            {
+                "cve_id": "CVE-2021-44790",
+                "title": "Buffer overflow in mod_lua",
+                "severity": "Critical",
+                "affected_range": "<= 2.4.51",
+                "description": "A carefully crafted request body can cause a buffer overflow in the mod_lua multipart parser."
+            },
+            {
+                "cve_id": "CVE-2024-38474",
+                "title": "Apache HTTP Server vulnerability in mod_proxy",
+                "severity": "High",
+                "affected_range": "<= 2.4.59",
+                "description": "A vulnerability in Apache HTTP Server 2.4.59 and earlier allows for potential exploitation of mod_proxy configurations."
+            },
+            {
+                "cve_id": "CVE-2023-27522",
+                "title": "mod_proxy_uwsgi response smuggling",
+                "severity": "High",
+                "affected_range": "<= 2.4.55",
+                "description": "Apache HTTP Server 2.4.55 and earlier may smuggling responses via mod_proxy_uwsgi."
+            }
+        ]
+    },
+    "php": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2015-0235",
+                "title": "GHOST - GetHostByName Buffer Overflow",
+                "severity": "Critical",
+                "affected_range": "<= 7.0.0",
+                "description": "Heap-based buffer overflow in the __nss_hostname_digits_dots function in glibc."
+            },
+            {
+                "cve_id": "CVE-2016-5385",
+                "title": "HTTPoxy - Proxy Header Vulnerability",
+                "severity": "High",
+                "affected_range": "<= 7.0.8",
+                "description": "PHP through 7.0.8 does not properly handle the HTTP_PROXY variable."
+            },
+            {
+                "cve_id": "CVE-2019-11043",
+                "title": "PHP-FPM Remote Code Execution",
+                "severity": "Critical",
+                "affected_range": "< 7.3.11",
+                "description": "Exploit against PHP-FPM under nginx configurations."
+            }
+        ]
+    },
+    "wordpress": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2020-36326",
+                "title": "WordPress Object Injection via PHPMailer",
+                "severity": "Critical",
+                "affected_range": "< 5.7.1",
+                "description": "PHPMailer before 6.1.6 contains an object injection vulnerability."
+            },
+            {
+                "cve_id": "CVE-2019-14314",
+                "title": "WordPress NextGEN Gallery SQL Injection",
+                "severity": "High",
+                "affected_range": "< 5.3.0",
+                "description": "SQL injection vulnerability in the NextGEN Gallery plugin."
+            }
+        ]
+    },
+    "jquery": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2020-11022",
+                "title": "Prototype Pollution / XSS in jQuery",
+                "severity": "High",
+                "affected_range": "< 3.5.0",
+                "description": "jQuery before 3.5.0 allows XSS in the HTML() method."
+            },
+            {
+                "cve_id": "CVE-2020-11023",
+                "title": "Cross-Site Scripting (XSS) in jQuery.htmlPrefilter",
+                "severity": "High",
+                "affected_range": "< 3.5.0",
+                "description": "jQuery before 3.5.0 allows XSS in the htmlPrefilter method."
+            }
+        ]
+    },
+    "jquery_ui": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2016-7103",
+                "title": "XSS in jQuery UI Dialog",
+                "severity": "Medium",
+                "affected_range": "< 1.12.0",
+                "description": "XSS vulnerability in jQuery UI before 1.12.0."
+            },
+            {
+                "cve_id": "CVE-2021-41184",
+                "title": "XSS in jQuery UI Position",
+                "severity": "High",
+                "affected_range": "< 1.13.0",
+                "description": "XSS vulnerability in the position component."
+            }
+        ]
+    },
+    "openssl": {
+        "cve_list": [
+            {
+                "cve_id": "CVE-2016-6303",
+                "title": "Integer Overflow in MDC2_Update",
+                "severity": "High",
+                "affected_range": "< 1.1.0",
+                "description": "Integer overflow in OpenSSL before 1.1.0."
+            },
+            {
+                "cve_id": "CVE-2016-2108",
+                "title": "Memory Corruption in ASN.1 Encoder",
+                "severity": "Critical",
+                "affected_range": "< 1.0.1t",
+                "description": "Memory corruption in ASN.1 encoder allows potential code execution."
+            },
+            {
+                "cve_id": "CVE-2014-3566",
+                "title": "POODLE (SSLv3 Downgrade Attack)",
+                "severity": "Medium",
+                "affected_range": "<= 1.0.1i",
+                "description": "Vulnerability in SSLv3 CBC padding."
+            }
+        ]
+    }
+}

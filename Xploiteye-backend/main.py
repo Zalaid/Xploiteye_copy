@@ -3,15 +3,17 @@ XploitEye Backend - FastAPI Application
 """
 
 import uvicorn
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from config.settings import settings
 from config.logging_config import setup_uvicorn_logging, log_meaningful_startup, log_meaningful_shutdown
 from app.database.mongodb import connect_to_mongo, close_mongo_connection
-from app.routes import auth, dashboard, mfa, scanning, cve, email_verification, password_reset, dvwa_scanner
+from app.routes import auth, dashboard, mfa, scanning, cve, email_verification, password_reset, dvwa_scanner, web_scanning
 from app.routes import ssh_exploit, chatbot_routes, rag_routes, unified_chat_routes
 #from app.payment import payment_router
 from app.redagentnetwork.routes.red_agent_routes import router as red_agent_router
@@ -32,7 +34,6 @@ async def lifespan(app: FastAPI):
     import config.email_settings
 
     # Create scanning directories
-    import os
     os.makedirs(settings.results_dir, exist_ok=True)
     os.makedirs(settings.reports_dir, exist_ok=True)
 
@@ -66,6 +67,7 @@ app.include_router(password_reset.router)      # Password reset routes
 app.include_router(mfa.router)
 app.include_router(dashboard.router)
 app.include_router(scanning.router)
+app.include_router(web_scanning.router)
 app.include_router(cve.router)
 app.include_router(dvwa_scanner.router, prefix="/api")  # DVWA Scanner routes
 app.include_router(ssh_exploit.router)
@@ -76,6 +78,21 @@ app.include_router(meterpreter_router)  # Meterpreter exploitation routes
 app.include_router(chatbot_routes.router, prefix="/api")  # Chatbot routes
 app.include_router(rag_routes.router, prefix="/api")  # RAG routes
 app.include_router(unified_chat_routes.router, prefix="/api")  # Unified Chat routes
+
+# --- Separate Documentation Panel for Web Scanner ---
+web_scanner_app = FastAPI(
+    title="XploitEye | Web Application Scanner",
+    description="Dedicated panel for automated web security audits, reconnaissance, and vulnerability mapping.",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json"
+)
+web_scanner_app.include_router(web_scanning.router)
+app.mount("/web-scanner", web_scanner_app)
+
+# --- Static Files for Results ---
+os.makedirs(os.path.join(settings.results_dir, "web_scans"), exist_ok=True)
+app.mount("/web-results", StaticFiles(directory=os.path.join(settings.results_dir, "web_scans")), name="web-results")
 
 # Root endpoint
 @app.get("/", tags=["Health"])

@@ -137,6 +137,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # This will ignore extra fields not defined in the model
 
 # Create global settings instance
 settings = Settings()

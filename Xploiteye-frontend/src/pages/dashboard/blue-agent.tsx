@@ -139,15 +139,15 @@ export function NetworkBlueAgent() {
         // Transform based on scanning results format
         const vulns: Vulnerability[] = Array.isArray(parsedResults)
           ? parsedResults.map((result: any, idx: number) => ({
-              id: `vuln-${idx}`,
-              port: parseInt(result.port) || 0,
-              service: (result.results?.service_name || result.service || 'Unknown').trim(),
-              version: (result.results?.service_version || result.version || 'Unknown').trim(),
-              cve: result.results?.cves?.[0]?.cve_id || result.cve_id || 'Unknown',
-              severity: (result.severity || result.results?.cves?.[0]?.severity || 'medium').toLowerCase(),
-              description: result.description || 'No description available',
-              cvss: result.cvss_score || result.results?.cves?.[0]?.cvss_score || 0,
-            }))
+            id: `vuln-${idx}`,
+            port: parseInt(result.port) || 0,
+            service: (result.results?.service_name || result.service || 'Unknown').trim(),
+            version: (result.results?.service_version || result.version || 'Unknown').trim(),
+            cve: result.results?.cves?.[0]?.cve_id || result.cve_id || 'Unknown',
+            severity: (result.severity || result.results?.cves?.[0]?.severity || 'medium').toLowerCase(),
+            description: result.description || 'No description available',
+            cvss: result.cvss_score || result.results?.cves?.[0]?.cvss_score || 0,
+          }))
           : []
 
         if (vulns.length > 0) {
@@ -522,13 +522,12 @@ export function NetworkBlueAgent() {
                 disabled={step.num > remediationState.currentStep}
               >
                 <motion.div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                    step.num < remediationState.currentStep
+                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${step.num < remediationState.currentStep
                       ? "bg-green-500/20 border-2 border-green-500 text-green-400"
                       : step.num === remediationState.currentStep
                         ? "bg-blue-500/20 border-2 border-blue-500 text-blue-400 shadow-lg shadow-blue-500/50"
                         : "bg-slate-700/50 border-2 border-slate-600 text-slate-400"
-                  }`}
+                    }`}
                 >
                   {step.num < remediationState.currentStep ? <CheckCircle className="w-5 h-5" /> : step.num - 1}
                 </motion.div>
@@ -765,8 +764,8 @@ export function NetworkBlueAgent() {
                                       ? cvssScore >= 9.0
                                         ? '0 0 12px rgba(220, 38, 38, 0.4)'
                                         : cvssScore >= 7.0
-                                        ? '0 0 12px rgba(234, 88, 12, 0.4)'
-                                        : '0 0 12px rgba(59, 130, 246, 0.2)'
+                                          ? '0 0 12px rgba(234, 88, 12, 0.4)'
+                                          : '0 0 12px rgba(59, 130, 246, 0.2)'
                                       : '0 0 12px rgba(59, 130, 246, 0.2)'
                                   }}
                                 >
@@ -1520,16 +1519,380 @@ export function NetworkBlueAgent() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function WebBlueAgent() {
+  const { user } = useAuth()
+  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
+  const [isLoadingVulns, setIsLoadingVulns] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [remediationState, setRemediationState] = useState<RemediationState>({
+    currentStep: 1,
+    selectedVuln: null,
+    remedyStrategy: null,
+    generatedScript: null,
+    impactAssessment: null,
+    isLoading: false,
+    error: null,
+  })
+
+  // Auto-scroll to bottom when step changes
+  useEffect(() => {
+    if (remediationState.currentStep >= 1) {
+      setTimeout(() => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
+      }, 300)
+    }
+  }, [remediationState.currentStep])
+
+  // Load vulnerabilities from webScanningResults
+  useEffect(() => {
+    loadVulnerabilitiesFromWebScan()
+  }, [])
+
+  const loadVulnerabilitiesFromWebScan = async () => {
+    try {
+      setIsLoadingVulns(true)
+      setLoadError(null)
+
+      const webResults = localStorage.getItem('webScanningResults')
+
+      if (webResults) {
+        const parsed = JSON.parse(webResults)
+        const findings = parsed.vulnerabilities || []
+
+        const vulns: Vulnerability[] = findings.map((f: any, idx: number) => ({
+          id: `web-vuln-${idx}`,
+          port: 80, // Default for web
+          service: f.name || 'Web Service',
+          version: 'Detected',
+          cve: f.path?.match(/CVE-\d{4}-\d{4,}/)?.[0] || 'Web-Vulnerability',
+          severity: (f.severity || 'medium').toLowerCase() as any,
+          description: f.description || 'No description available',
+        }))
+
+        if (vulns.length > 0) {
+          setVulnerabilities(vulns)
+        } else {
+          setLoadError('No web vulnerabilities found in scan results')
+        }
+      } else {
+        setLoadError('No web scanning results found. Please run a web scan first.')
+      }
+    } catch (error) {
+      console.error('Error loading web vulnerabilities:', error)
+      setLoadError('Failed to load web scanning results')
+    } finally {
+      setIsLoadingVulns(false)
+    }
+  }
+
+  const handleRemediateClick = (vuln: Vulnerability) => {
+    setRemediationState(prev => ({
+      ...prev,
+      selectedVuln: vuln,
+      currentStep: 2,
+      error: null,
+    }))
+  }
+
+  const handleGenerateStrategy = async () => {
+    if (!remediationState.selectedVuln) return
+    setRemediationState(prev => ({ ...prev, isLoading: true, error: null }))
+    try {
+      const response = await fetch('http://localhost:8000/api/blue-agent/fetch-remediation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vulnerability: {
+            cve: remediationState.selectedVuln.cve,
+            service: remediationState.selectedVuln.service,
+            version: remediationState.selectedVuln.version,
+            port: remediationState.selectedVuln.port,
+            severity: remediationState.selectedVuln.severity,
+            description: remediationState.selectedVuln.description,
+          },
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to fetch strategy')
+      const data = await response.json()
+      setRemediationState(prev => ({ ...prev, remedyStrategy: data.strategy, currentStep: 3, isLoading: false }))
+    } catch (error: any) {
+      setRemediationState(prev => ({ ...prev, error: error.message, isLoading: false }))
+    }
+  }
+
+  const handleGenerateScript = async () => {
+    if (!remediationState.selectedVuln || !remediationState.remedyStrategy) return
+    setRemediationState(prev => ({ ...prev, isLoading: true, error: null }))
+    try {
+      const response = await fetch('http://localhost:8000/api/blue-agent/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vulnerability: {
+            cve: remediationState.selectedVuln.cve,
+            service: remediationState.selectedVuln.service,
+            version: remediationState.selectedVuln.version,
+            port: remediationState.selectedVuln.port,
+            severity: remediationState.selectedVuln.severity,
+            description: remediationState.selectedVuln.description,
+          },
+          remediation_strategy: remediationState.remedyStrategy,
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to generate script')
+      const data = await response.json()
+      setRemediationState(prev => ({ ...prev, generatedScript: data.script, currentStep: 4, isLoading: false }))
+    } catch (error: any) {
+      setRemediationState(prev => ({ ...prev, error: error.message, isLoading: false }))
+    }
+  }
+
+  const handleAssessImpact = async () => {
+    if (!remediationState.selectedVuln || !remediationState.generatedScript) return
+    setRemediationState(prev => ({ ...prev, isLoading: true, error: null }))
+    try {
+      const response = await fetch('http://localhost:8000/api/blue-agent/assess-impact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vulnerability: {
+            cve: remediationState.selectedVuln.cve,
+            service: remediationState.selectedVuln.service,
+            version: remediationState.selectedVuln.version,
+            port: remediationState.selectedVuln.port,
+            severity: remediationState.selectedVuln.severity,
+            description: remediationState.selectedVuln.description,
+          },
+          generated_script: remediationState.generatedScript,
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to assess impact')
+      const data = await response.json()
+      setRemediationState(prev => ({ ...prev, impactAssessment: data.impact, currentStep: 5, isLoading: false }))
+    } catch (error: any) {
+      setRemediationState(prev => ({ ...prev, error: error.message, isLoading: false }))
+    }
+  }
+
+  const handleEmailPackage = async () => {
+    if (!user?.email || !remediationState.selectedVuln) return
+    setRemediationState(prev => ({ ...prev, isLoading: true, error: null }))
+    try {
+      const response = await fetch('http://localhost:8000/api/blue-agent/package-and-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vulnerability: remediationState.selectedVuln,
+          generated_script: remediationState.generatedScript,
+          impact_assessment: remediationState.impactAssessment,
+          user_email: user.email,
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to send package')
+      setRemediationState(prev => ({ ...prev, isLoading: false, emailSent: true }))
+    } catch (error: any) {
+      setRemediationState(prev => ({ ...prev, error: error.message, isLoading: false }))
+    }
+  }
+
+  const handleBack = () => {
+    setRemediationState({
+      currentStep: 1,
+      selectedVuln: null,
+      remedyStrategy: null,
+      generatedScript: null,
+      impactAssessment: null,
+      isLoading: false,
+      error: null,
+      emailSent: false,
+    })
+  }
+
   return (
-    <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-blue-500/20">
-      <CardContent className="p-12">
-        <div className="text-center">
-          <Globe className="w-12 h-12 text-slate-500 mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-semibold text-slate-300 mb-2">Web Blue Agent</h3>
-          <p className="text-slate-500">Coming soon - Web vulnerability remediation</p>
+    <div className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent">
+            Web Blue Agent
+          </h2>
+          <p className="text-muted-foreground mt-1">Automated remediation for web vulnerabilities</p>
         </div>
-      </CardContent>
-    </Card>
+        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+          <Globe className="w-3 h-3 mr-1" />
+          Web Mode
+        </Badge>
+      </motion.div>
+
+      {remediationState.currentStep > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 rounded-lg p-6 border border-slate-700/50"
+        >
+          <div className="flex items-center justify-between relative">
+            <div className="absolute top-6 left-0 right-0 h-1 bg-slate-700/50 -z-10">
+              <motion.div
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                animate={{ width: `${((remediationState.currentStep - 1) / 4) * 100}%` }}
+              />
+            </div>
+            {[
+              { num: 2, title: "Strategy", icon: <FileText className="w-4 h-4" /> },
+              { num: 3, title: "Script", icon: <Terminal className="w-4 h-4" /> },
+              { num: 4, title: "Impact", icon: <AlertTriangle className="w-4 h-4" /> },
+              { num: 5, title: "Email", icon: <Mail className="w-4 h-4" /> },
+            ].map((step) => (
+              <div key={step.num} className="flex flex-col items-center relative z-10">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${step.num < remediationState.currentStep ? "bg-green-500 border-2 border-green-400 text-white" :
+                    step.num === remediationState.currentStep ? "bg-green-500/20 border-2 border-green-500 text-green-400 shadow-lg shadow-green-500/50" :
+                      "bg-slate-700/50 border-2 border-slate-600 text-slate-400"
+                  }`}>
+                  {step.num < remediationState.currentStep ? <CheckCircle className="w-5 h-5" /> : step.num - 1}
+                </div>
+                <p className="text-xs font-medium mt-2 text-slate-300">{step.title}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      <AnimatePresence mode="wait">
+        {remediationState.currentStep === 1 && (
+          <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="space-y-6">
+            <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-green-500/20">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-3">
+                  <Globe className="w-6 h-6 text-green-400" />
+                  <span>Web Vulnerabilities Detected</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingVulns ? (
+                  <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-green-400" /><p className="ml-2">Loading...</p></div>
+                ) : loadError ? (
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
+                    <AlertTriangle className="text-red-400" />
+                    <p className="text-red-400">{loadError}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {vulnerabilities.map((vuln) => (
+                      <motion.div
+                        key={vuln.id}
+                        whileHover={{ scale: 1.01 }}
+                        onClick={() => handleRemediateClick(vuln)}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${getSeverityColor(vuln.severity)} hover:border-green-400`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-white">{vuln.service}</h4>
+                              <Badge className={getSeverityColor(vuln.severity)}>{vuln.severity.toUpperCase()}</Badge>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{vuln.cve}</p>
+                          </div>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700">Remediate</Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {remediationState.currentStep === 2 && (
+          <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Button variant="ghost" onClick={handleBack} className="text-slate-400 hover:text-white"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+            <Card className="bg-slate-800/50 border-green-500/20 p-6">
+              <h3 className="text-xl font-bold text-green-400 mb-4">Remediation Strategy Analysis</h3>
+              <p className="text-slate-300">Target: {remediationState.selectedVuln?.service} ({remediationState.selectedVuln?.cve})</p>
+              <Button onClick={handleGenerateStrategy} disabled={remediationState.isLoading} className="mt-6 bg-green-600 text-white w-full py-6">
+                {remediationState.isLoading ? <Loader2 className="animate-spin mr-2" /> : <Brain className="mr-2" />}
+                Generate AI Remediation Strategy
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+
+        {remediationState.currentStep === 3 && remediationState.remedyStrategy && (
+          <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Card className="bg-slate-800/50 border-green-500/20 p-6">
+              <h3 className="text-xl font-bold text-green-400 mb-4 font-mono flex items-center">
+                <Shield className="mr-2" /> Strategy Generated
+              </h3>
+              <div className="space-y-3">
+                {remediationState.remedyStrategy.strategy_points?.map((point: string, i: number) => (
+                  <div key={i} className="flex gap-2 text-slate-300 bg-slate-900/40 p-3 rounded border border-slate-700/50">
+                    <CheckCircle className="text-green-500 w-4 h-4 mt-1 flex-shrink-0" />
+                    <p className="text-sm">{point}</p>
+                  </div>
+                ))}
+              </div>
+              <Button onClick={handleGenerateScript} disabled={remediationState.isLoading} className="mt-6 bg-emerald-600 w-full py-6">
+                {remediationState.isLoading ? <Loader2 className="animate-spin mr-2" /> : <Terminal className="mr-2" />}
+                Proceed to Script Generation
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+
+        {remediationState.currentStep === 4 && remediationState.generatedScript && (
+          <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Card className="bg-slate-900 border-green-500/30">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-green-400 flex items-center"><Terminal className="mr-2" /> Remediation Code</CardTitle>
+                <Badge variant="outline" className="border-green-500/50 text-green-400">{remediationState.generatedScript.language}</Badge>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-black/50 p-4 rounded-md text-emerald-400 font-mono text-xs overflow-x-auto border border-white/5">
+                  {remediationState.generatedScript.script_content}
+                </pre>
+                <Button onClick={handleAssessImpact} disabled={remediationState.isLoading} className="mt-6 bg-green-600 w-full py-6">
+                  {remediationState.isLoading ? <Loader2 className="animate-spin mr-2" /> : <Activity className="mr-2" />}
+                  Assess Security Impact
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {remediationState.currentStep === 5 && remediationState.impactAssessment && (
+          <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <Card className="bg-slate-800/80 border-green-500/30">
+              <CardHeader>
+                <CardTitle className="text-green-400 flex items-center"><AlertTriangle className="mr-2" /> Impact Assessment</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-900/50 rounded-lg">
+                    <p className="text-xs text-slate-500">Risk Level</p>
+                    <p className={`font-bold ${getRiskLevelColor(remediationState.impactAssessment.risk_level)}`}>{remediationState.impactAssessment.risk_level}</p>
+                  </div>
+                  <div className="p-4 bg-slate-900/50 rounded-lg">
+                    <p className="text-xs text-slate-500">Reversible</p>
+                    <p className="font-bold text-white">{remediationState.impactAssessment.reversible ? "Yes" : "No"}</p>
+                  </div>
+                </div>
+                {remediationState.emailSent ? (
+                  <div className="bg-green-500/20 border border-green-500 p-4 rounded-lg text-center flex flex-col items-center">
+                    <Inbox className="w-12 h-12 text-green-500 mb-2" />
+                    <p className="font-bold text-green-400">Remediation Package Sent!</p>
+                    <p className="text-xs text-green-300/80 mt-1">Check your email at {user?.email} for the ZIP package.</p>
+                    <Button onClick={handleBack} variant="outline" className="mt-4 border-green-500 text-green-400">Start New Remediation</Button>
+                  </div>
+                ) : (
+                  <Button onClick={handleEmailPackage} disabled={remediationState.isLoading} className="w-full bg-blue-600 hover:bg-blue-700 py-6">
+                    {remediationState.isLoading ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2" />}
+                    Package & Send to my Email
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 

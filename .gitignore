@@ -52,7 +52,7 @@ build/
 dist/
 *.egg-info/
 .eggs/
-
+/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/xploitenv
 # testing
 .pytest_cache/
 .coverage

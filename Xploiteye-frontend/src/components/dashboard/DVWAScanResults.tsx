@@ -104,57 +104,87 @@ export function DVWAScanResults({ result, isLoading = false, onExploit }: DVWASc
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Total Found</p>
-                <p className="text-3xl font-bold text-red-400 mt-1">
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight">Total Found</p>
+                <p className="text-3xl font-bold text-red-100 mt-1">
                   {result.total_vulnerabilities}
                 </p>
               </div>
-              <AlertTriangle className="w-10 h-10 text-red-500/40" />
+              <AlertTriangle className="w-8 h-8 text-red-500/40" />
             </div>
           </CardContent>
         </Card>
 
         {/* Critical */}
-        <Card className="bg-gradient-to-br from-red-900/30 to-red-800/20 border-red-500/20">
+        <Card className="bg-gradient-to-br from-red-900/40 to-black border-red-500/30">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Critical</p>
-                <p className="text-3xl font-bold text-red-400 mt-1">
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight text-red-400">Critical</p>
+                <p className="text-3xl font-bold text-white mt-1">
                   {result.severity_breakdown.CRITICAL}
                 </p>
               </div>
-              <span className="text-2xl">🔴</span>
+              <span className="text-2xl opacity-80">🔴</span>
             </div>
           </CardContent>
         </Card>
 
         {/* High */}
-        <Card className="bg-gradient-to-br from-orange-900/30 to-orange-800/20 border-orange-500/20">
+        <Card className="bg-gradient-to-br from-orange-900/30 to-black border-orange-500/30">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">High</p>
-                <p className="text-3xl font-bold text-orange-400 mt-1">
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight text-orange-400">High</p>
+                <p className="text-3xl font-bold text-white mt-1">
                   {result.severity_breakdown.HIGH}
                 </p>
               </div>
-              <span className="text-2xl">🟠</span>
+              <span className="text-2xl opacity-80">🟠</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Medium */}
+        <Card className="bg-gradient-to-br from-yellow-900/20 to-black border-yellow-500/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight text-yellow-400">Medium</p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {result.severity_breakdown.MEDIUM}
+                </p>
+              </div>
+              <span className="text-2xl opacity-80">🟡</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Low */}
+        <Card className="bg-gradient-to-br from-blue-900/20 to-black border-blue-500/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight text-blue-400">Low</p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {result.severity_breakdown.LOW}
+                </p>
+              </div>
+              <span className="text-2xl opacity-80">🔵</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Duration */}
-        <Card className="bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-500/20">
+        <Card className="bg-gradient-to-br from-gray-900/40 to-black border-gray-700/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Duration</p>
-                <p className="text-3xl font-bold text-blue-400 mt-1">
+                <p className="text-gray-400 text-xs uppercase font-bold tracking-tight">Duration</p>
+                <p className="text-xl font-bold text-gray-100 mt-1">
                   {result.scan_duration.toFixed(1)}s
                 </p>
               </div>
-              <Clock className="w-10 h-10 text-blue-500/40" />
+              <Clock className="w-8 h-8 text-gray-500/40" />
             </div>
           </CardContent>
         </Card>

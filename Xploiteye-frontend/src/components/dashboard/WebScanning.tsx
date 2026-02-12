@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { dvwaApi } from '@/services/dvwaApi'
+import { webScanApi } from '@/services/webScanApi'
 import { useAuth } from '@/auth/AuthContext'
 import { DVWAScanResults } from './DVWAScanResults'
-import { DVWAScanResult } from '@/services/dvwaApi'
+import { WebScanDetails } from './WebScanDetails'
+import { DVWAScanResult, DVWAVulnerability } from '@/services/dvwaApi'
 
 interface WebScanningProps {
   onScanStart?: (url: string, config: ScanConfig) => void
@@ -32,7 +34,7 @@ const labEnvironments = [
 ]
 
 export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScanningProps) {
-  const { apiCall } = useAuth()
+  const { apiCall, user } = useAuth()
   const [url, setUrl] = useState('')
   const [isLive, setIsLive] = useState(false)
   const [isLab, setIsLab] = useState(true)
@@ -43,9 +45,13 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
   const [scanError, setScanError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [currentVulnIndex, setCurrentVulnIndex] = useState(0)
+  const [scanId, setScanId] = useState<string | null>(null)
+  const [webScanDetails, setWebScanDetails] = useState<any>(null)
+  const [scanStatus, setScanStatus] = useState<string>('')
 
   const validateURL = (input: string): boolean => {
     try {
+      if (!input.includes('.')) return false
       new URL(input.startsWith('http') ? input : `http://${input}`)
       return true
     } catch {
@@ -53,8 +59,94 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
     }
   }
 
+  const handleQuickScan = (targetUrl: string) => {
+    setUrl(targetUrl)
+    setIsLive(true)
+    setIsLab(false)
+    setSelectedLabs([])
+    // Trigger scan using a simulated effect or wait for user to click
+    // But better to just start it immediately
+    setTimeout(() => {
+      const startButton = document.getElementById('start-web-scan-btn')
+      if (startButton) startButton.click()
+    }, 100)
+  }
+
+  const pollScanStatus = async (id: string) => {
+    try {
+      const result = await webScanApi.getWebScanStatus(id)
+      setScanStatus(result.status)
+
+      const isFinished = result.status === 'Completed' || result.status.includes('Completed');
+      const isGeneratingReport = result.status === 'Generating Report';
+
+      if (isFinished || isGeneratingReport) {
+        if (isFinished) {
+          setIsScanning(false);
+          setProgress(100);
+        } else {
+          // Status is "Generating Report"
+          setProgress(95);
+          // Keep isScanning true but show the results
+        }
+
+        setWebScanDetails(result);
+
+        // Transform the WebScanner findings into DVWA Result format for display
+        const transformedResult: DVWAScanResult = {
+          scan_id: id,
+          target: result.target,
+          timestamp: result.completed_at || new Date().toISOString(),
+          total_vulnerabilities: result.findings?.length || 0,
+          scan_duration: result.scan_duration_sec,
+          status: isFinished ? 'completed' : 'generating_report',
+          vulnerabilities: (result.findings || []).map((f: any) => ({
+            name: f.title,
+            path: f.component + (f.cve_id ? ` (${f.cve_id})` : ''),
+            type: f.category,
+            severity: (f.severity?.toUpperCase() || 'LOW') as any,
+            description: f.description,
+            status: 'Vulnerable'
+          })),
+          severity_breakdown: {
+            CRITICAL: (result.findings || []).filter(f => f.severity?.toUpperCase() === 'CRITICAL').length,
+            HIGH: (result.findings || []).filter(f => f.severity?.toUpperCase() === 'HIGH').length,
+            MEDIUM: (result.findings || []).filter(f => f.severity?.toUpperCase() === 'MEDIUM').length,
+            LOW: (result.findings || []).filter(f => f.severity?.toUpperCase() === 'LOW').length
+          }
+        }
+
+        setScanResult(transformedResult);
+
+        // Persist to localStorage for Blue Agent access
+        try {
+          localStorage.setItem('webScanningResults', JSON.stringify(transformedResult));
+          console.log('✅ Web scan results persisted to localStorage');
+          window.dispatchEvent(new CustomEvent('webScanningResultsUpdated', { detail: transformedResult }));
+        } catch (e) {
+          console.error('Failed to save web scan results to localStorage:', e);
+        }
+
+        if (isFinished && onScanComplete) onScanComplete(transformedResult.vulnerabilities);
+
+        return isFinished;
+      } else if (result.status === 'Failed') {
+        throw new Error(result.status || 'Scan failed')
+      }
+
+      // Update progress based on status
+      if (result.status.includes('Network')) setProgress(30)
+      else if (result.status.includes('Analyzing')) setProgress(50)
+      else if (result.status.includes('Mapping')) setProgress(75)
+
+      return false
+    } catch (err) {
+      console.error("Polling error:", err)
+      throw err
+    }
+  }
+
   const handleLabToggle = (labId: string) => {
-    // Only allow one lab environment to be selected at a time
     setSelectedLabs((prev) =>
       prev.includes(labId) ? [] : [labId]
     )
@@ -67,20 +159,19 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
       return
     }
 
-    if (isLive && !isLab) {
-      // Live mode requires URL
+    if (isLive) {
       const trimmedUrl = url.trim()
       if (!trimmedUrl) {
         setUrlError('Please enter a URL for Live scanning')
         return
       }
       if (!validateURL(trimmedUrl)) {
-        setUrlError('Please enter a valid URL (e.g., example.com or http://example.com)')
+        setUrlError('Please enter a valid URL (e.g., example.com)')
         return
       }
     }
 
-    if (isLab && !isLive && selectedLabs.length === 0) {
+    if (isLab && selectedLabs.length === 0) {
       setUrlError('Please select at least one lab environment')
       return
     }
@@ -89,54 +180,54 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
     setIsScanning(true)
     setScanError(null)
     setScanResult(null)
+    setWebScanDetails(null)
+    setScanId(null)
+    setProgress(5)
 
     try {
-      // Initialize API call if needed
       if (apiCall) {
         dvwaApi.setApiCall(apiCall)
+        webScanApi.setApiCall(apiCall)
       }
 
-      // For DVWA scans
-      if (isLab && selectedLabs.includes('dvwa')) {
-        // Use DVWA default target (backend returns mock/sample data)
-        const dvwaTarget = 'http://192.168.0.176/dvwa'
+      if (isLive) {
+        // Authenticated user email detected automatically
+        const userEmail = user?.email || undefined
+        const response = await webScanApi.startWebScan(url, userEmail)
 
-        const response = await dvwaApi.startDVWAScan(
-          dvwaTarget,
-          'dvwa'
-        )
+        if (response.scan_id) {
+          setScanId(response.scan_id)
+          // Start Polling
+          const pollInterval = setInterval(async () => {
+            try {
+              const finished = await pollScanStatus(response.scan_id)
+              if (finished) clearInterval(pollInterval)
+            } catch (pollErr) {
+              clearInterval(pollInterval)
+              setScanError(pollErr instanceof Error ? pollErr.message : 'Scan monitoring failed')
+              setIsScanning(false)
+            }
+          }, 4000)
+        }
+      } else if (isLab && selectedLabs.includes('dvwa')) {
+        const dvwaTarget = 'http://192.168.0.176/dvwa'
+        const response = await dvwaApi.startDVWAScan(dvwaTarget, 'dvwa')
 
         if (response.data) {
           setScanResult(response.data)
-          // Complete the progress bar
           setProgress(100)
-
-          // Call scan complete callback with all vulnerabilities
-          if (onScanComplete) {
-            onScanComplete(response.data.vulnerabilities)
-          }
+          if (onScanComplete) onScanComplete(response.data.vulnerabilities)
+          setIsScanning(false)
         }
+      }
 
-        // Call parent handler
-        if (onScanStart) {
-          onScanStart('DVWA', {
-            isLive: false,
-            isLab: true,
-            labEnvironments: selectedLabs,
-          })
-        }
+      if (onScanStart) {
+        onScanStart(isLive ? url : 'Lab', { isLive, isLab, labEnvironments: selectedLabs })
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setScanError(errorMessage)
-      console.error('Scan error:', errorMessage)
-    } finally {
-      // Reset progress states after a delay
-      setTimeout(() => {
-        setIsScanning(false)
-        setProgress(0)
-        setCurrentVulnIndex(0)
-      }, 500)
+      setIsScanning(false)
     }
   }
 
@@ -200,7 +291,7 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                   </label>
                   <div className="relative">
                     <Input
-                      placeholder="Enter URL (e.g., example.com or http://example.com)"
+                      placeholder="Enter URL (e.g., example.com)"
                       value={url}
                       onChange={(e) => {
                         setUrl(e.target.value)
@@ -212,6 +303,21 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                     />
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                   </div>
+
+                  {/* Common Targets / Quick Start */}
+                  {!isScanning && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Quick Audit:</span>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleQuickScan('https://pucit.edu.pk')}
+                        className="text-xs px-2 py-1 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                      >
+                        https://pucit.edu.pk
+                      </motion.button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -226,11 +332,10 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                 {/* Live Checkbox */}
                 <motion.div
                   whileHover={{ scale: 1.02 }}
-                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                    isLive
-                      ? 'bg-green-500/10 border-green-500/50'
-                      : 'bg-gray-800/30 border-gray-700/50 hover:border-green-500/30'
-                  }`}
+                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${isLive
+                    ? 'bg-green-500/10 border-green-500/50'
+                    : 'bg-gray-800/30 border-gray-700/50 hover:border-green-500/30'
+                    }`}
                   onClick={() => {
                     setIsLive(true)
                     setIsLab(false)
@@ -264,11 +369,10 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                 {/* Lab Checkbox */}
                 <motion.div
                   whileHover={{ scale: 1.02 }}
-                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                    isLab
-                      ? 'bg-purple-500/10 border-purple-500/50'
-                      : 'bg-gray-800/30 border-gray-700/50 hover:border-purple-500/30'
-                  }`}
+                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${isLab
+                    ? 'bg-purple-500/10 border-purple-500/50'
+                    : 'bg-gray-800/30 border-gray-700/50 hover:border-purple-500/30'
+                    }`}
                   onClick={() => {
                     setIsLab(true)
                     setIsLive(false)
@@ -320,11 +424,10 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                       <motion.div
                         key={env.id}
                         whileHover={{ scale: 1.02 }}
-                        className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
-                          selectedLabs.includes(env.id)
-                            ? 'bg-purple-500/10 border-purple-500/50'
-                            : 'bg-gray-800/30 border-gray-700/50 hover:border-purple-500/30'
-                        }`}
+                        className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${selectedLabs.includes(env.id)
+                          ? 'bg-purple-500/10 border-purple-500/50'
+                          : 'bg-gray-800/30 border-gray-700/50 hover:border-purple-500/30'
+                          }`}
                         onClick={() => handleLabToggle(env.id)}
                       >
                         <div className="flex items-center space-x-3">
@@ -375,6 +478,7 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
               whileTap={{ scale: 0.98 }}
             >
               <Button
+                id="start-web-scan-btn"
                 onClick={handleScan}
                 disabled={isScanning}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2"
@@ -410,10 +514,10 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-300">
-                        Scanning Vulnerabilities...
+                        {scanStatus === 'Generating Report' ? 'Finalizing ISO-Standard Report...' : 'Scanning Vulnerabilities...'}
                       </p>
                       <p className="text-sm font-semibold text-blue-400">
-                        {Math.round(progress)}%
+                        {scanStatus === 'Generating Report' ? '95%' : `${Math.round(progress)}%`}
                       </p>
                     </div>
 
@@ -437,7 +541,7 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
                         <Zap className="w-3 h-3 text-yellow-400" />
                       </motion.div>
                       <span>
-                        Scanning vulnerabilities...
+                        {scanStatus || 'Initializing engine...'}
                       </span>
                     </div>
                   </div>
@@ -476,7 +580,42 @@ export function WebScanning({ onScanStart, onExploit, onScanComplete }: WebScann
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
+          className="space-y-6"
         >
+          {scanResult.status === 'generating_report' && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-center gap-4 text-blue-400"
+            >
+              <div className="bg-blue-500/20 p-2 rounded-full">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Zap className="w-5 h-5" />
+                </motion.div>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-sm">Vulnerabilities Identified!</h4>
+                <p className="text-xs text-blue-300/80">
+                  We are currently generating your professional ISO-standard PDF report and sending it to your email. You can review the findings below in the meantime.
+                </p>
+              </div>
+              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
+                Processing Report...
+              </Badge>
+            </motion.div>
+          )}
+
+          {webScanDetails && (
+            <WebScanDetails
+              reconData={webScanDetails.recon_data}
+              technologies={webScanDetails.technologies}
+              sslInfo={webScanDetails.ssl_info}
+              networkPorts={webScanDetails.network_ports}
+            />
+          )}
           <DVWAScanResults result={scanResult} isLoading={false} onExploit={onExploit} />
         </motion.div>
       )}
