@@ -1,0 +1,120 @@
+# VPN Tunnel - Quick Reference Guide
+
+## ✅ Current Status: WORKING
+- VPS (64.23.223.93) can ping M2 (192.168.10.18) through Kali
+
+## 🔑 Important Keys (SAVE THESE!)
+
+### VPS Server:
+- Public Key: `ItLXH4EHW/VPBz8yLVZR1sNND+O4ofksxVmUC169BVk=`
+- Private Key: `ODLcpBjtdm9wqkA+s3cUVAT1AHo+kC0kywAz99zDO1w=`
+- VPN IP: 10.8.0.1
+
+### Kali Client:
+- Public Key: `oI1sVvDLEc+9He8aW0ANZ7/cNpSJ/xlbzvCj95bHehU=`
+- Private Key: `oApFbva+lK5TJyG0axRy6/XwZssxfc6Uwl7Ccx2sH1c=`
+- VPN IP: 10.8.0.5
+
+## 🚀 Essential Commands
+
+### Check if VPN is working:
+
+**On VPS:**
+```bash
+ping 10.8.0.5          # Should work (Kali)
+ping 192.168.10.18     # Should work (M2)
+```
+
+**On Kali:**
+```bash
+ping 10.8.0.1          # Should work (VPS)
+ping 192.168.10.18     # Should work (M2)
+sudo wg show           # Check VPN status
+```
+
+### If VPN stops working:
+
+**Restart WireGuard:**
+
+On VPS:
+```bash
+sudo wg-quick down wg0
+sudo wg-quick up wg0
+```
+
+On Kali:
+```bash
+sudo wg-quick down wg0
+sudo wg-quick up wg0
+```
+
+### If M2 IP changes:
+
+1. **Find new M2 IP:**
+```bash
+ssh -p 2222 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa msfadmin@127.0.0.1
+ifconfig eth0 | grep inet
+```
+
+2. **Update Kali iptables (replace NEW_IP):**
+```bash
+sudo iptables -t nat -F
+sudo iptables -t nat -A PREROUTING -i wg0 -j DNAT --to-destination NEW_IP
+sudo iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+sudo iptables -A FORWARD -i wg0 -o wlan0 -j ACCEPT
+sudo iptables -A FORWARD -i wlan0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo netfilter-persistent save
+```
+
+3. **Update VPS route:**
+```bash
+sudo ip route del 192.168.10.18
+sudo ip route add NEW_IP via 10.8.0.5
+```
+
+## 📝 Configuration Files
+
+### VPS: /etc/wireguard/wg0.conf
+```ini
+[Interface]
+PrivateKey = ODLcpBjtdm9wqkA+s3cUVAT1AHo+kC0kywAz99zDO1w=
+Address = 10.8.0.1/24
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+PublicKey = oI1sVvDLEc+9He8aW0ANZ7/cNpSJ/xlbzvCj95bHehU=
+AllowedIPs = 10.8.0.5/32, 192.168.10.0/24
+```
+
+### Kali: /etc/wireguard/wg0.conf
+```ini
+[Interface]
+PrivateKey = oApFbva+lK5TJyG0axRy6/XwZssxfc6Uwl7Ccx2sH1c=
+Address = 10.8.0.5/24
+DNS = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey = ItLXH4EHW/VPBz8yLVZR1sNND+O4ofksxVmUC169BVk=
+Endpoint = 64.23.223.93:51820
+AllowedIPs = 10.8.0.0/24
+PersistentKeepalive = 25
+```
+
+## 🎯 Next Steps for XploitEye
+
+1. Update XploitEye backend config to use M2 IP: 192.168.10.18
+2. Test network scanning from VPS to M2
+3. Test exploitation through the VPN tunnel
+
+## 🆘 Emergency Contacts/Info
+
+- VPS IP: 64.23.223.93
+- Kali Local IP: 192.168.10.15
+- M2 IP: 192.168.10.18 (DHCP - may change)
+- VPN Network: 10.8.0.0/24
+
+## 📄 Full Documentation
+
+See: VPN_SETUP_COMPLETE.txt (detailed step-by-step guide)

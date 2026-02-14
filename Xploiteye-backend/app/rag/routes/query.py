@@ -23,7 +23,7 @@ from config.settings import settings
 router = APIRouter()
 
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def query_rag(
     chat_data: ChatCreate,
     current_user: dict = Depends(get_current_user)

@@ -15,7 +15,7 @@ from config.settings import settings
 router = APIRouter()
 
 
-@router.get("/", response_model=List[SessionResponse])
+@router.get("", response_model=List[SessionResponse])
 async def get_user_sessions(
     current_user: dict = Depends(get_current_user)
 ):

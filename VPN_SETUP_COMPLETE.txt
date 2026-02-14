@@ -1,0 +1,221 @@
+# XploitEye VPN Tunnel Setup - Complete Documentation
+# Created: February 14, 2026
+# Architecture: VPS (Backend) <-> Kali (VPN Bridge) <-> M2 (Target)
+
+================================================================================
+# NETWORK ARCHITECTURE
+================================================================================
+
+Internet Users
+      ↓ HTTPS
+xploiteye.com (Hostinger - Frontend)
+      ↓ API Calls
+VPS (64.23.223.93) - Backend
+      ↓ WireGuard VPN (10.8.0.0/24)
+Kali (192.168.10.15) - VPN Bridge (10.8.0.5)
+      ↓ WiFi (192.168.10.0/24)
+M2 (192.168.10.18) - Target Machine
+
+================================================================================
+# PART 1: VPS SERVER SETUP (64.23.223.93)
+================================================================================
+
+# 1. Install WireGuard
+apt update && apt install -y wireguard wireguard-tools
+
+# 2. Enable IP forwarding
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+
+# 3. Generate server keys
+cd /etc/wireguard
+wg genkey | tee privatekey | wg pubkey > publickey
+SERVER_PRIVATE_KEY=$(cat privatekey)
+SERVER_PUBLIC_KEY=$(cat publickey)
+
+# Server Public Key: ItLXH4EHW/VPBz8yLVZR1sNND+O4ofksxVmUC169BVk=
+# Server Private Key: ODLcpBjtdm9wqkA+s3cUVAT1AHo+kC0kywAz99zDO1w=
+
+# 4. Create server configuration file
+sudo nano /etc/wireguard/wg0.conf
+
+# Add this content:
+[Interface]
+PrivateKey = ODLcpBjtdm9wqkA+s3cUVAT1AHo+kC0kywAz99zDO1w=
+Address = 10.8.0.1/24
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# Peer: Kali Machine
+[Peer]
+PublicKey = oI1sVvDLEc+9He8aW0ANZ7/cNpSJ/xlbzvCj95bHehU=
+AllowedIPs = 10.8.0.5/32, 192.168.10.0/24
+
+# 5. Start WireGuard server
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0
+
+# 6. Open firewall ports
+ufw allow 51820/udp
+ufw allow from 10.8.0.0/24
+
+# 7. Check WireGuard status
+sudo wg show
+
+================================================================================
+# PART 2: KALI CLIENT SETUP (192.168.10.15)
+================================================================================
+
+# 1. Install WireGuard
+sudo apt-get update
+sudo apt-get install -y wireguard wireguard-tools
+
+# 2. Generate client keys
+sudo wg genkey | sudo tee /etc/wireguard/privatekey | sudo wg pubkey | sudo tee /etc/wireguard/publickey
+KALI_PRIVATE_KEY=$(sudo cat /etc/wireguard/privatekey)
+KALI_PUBLIC_KEY=$(sudo cat /etc/wireguard/publickey)
+
+# Kali Public Key: oI1sVvDLEc+9He8aW0ANZ7/cNpSJ/xlbzvCj95bHehU=
+# Kali Private Key: oApFbva+lK5TJyG0axRy6/XwZssxfc6Uwl7Ccx2sH1c=
+
+# 3. Create client configuration file
+sudo nano /etc/wireguard/wg0.conf
+
+# Add this content:
+[Interface]
+PrivateKey = oApFbva+lK5TJyG0axRy6/XwZssxfc6Uwl7Ccx2sH1c=
+Address = 10.8.0.5/24
+DNS = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey = ItLXH4EHW/VPBz8yLVZR1sNND+O4ofksxVmUC169BVk=
+Endpoint = 64.23.223.93:51820
+AllowedIPs = 10.8.0.0/24
+PersistentKeepalive = 25
+
+# 4. Start WireGuard client
+sudo wg-quick up wg0
+
+# 5. Check WireGuard status
+sudo wg show
+
+# 6. Install iptables-persistent to save rules
+sudo apt-get install -y iptables-persistent
+
+================================================================================
+# PART 3: PORT FORWARDING ON KALI (VPS -> M2)
+================================================================================
+
+# M2 IP Address: 192.168.10.18 (Check with: ssh to M2 and run 'ifconfig')
+
+# 1. Enable IP forwarding on Kali
+sudo sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+
+# 2. Clear existing iptables rules
+sudo iptables -t nat -F
+sudo iptables -F
+
+# 3. Add port forwarding rules (VPS traffic -> M2)
+sudo iptables -t nat -A PREROUTING -i wg0 -j DNAT --to-destination 192.168.10.18
+sudo iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+sudo iptables -A FORWARD -i wg0 -o wlan0 -j ACCEPT
+sudo iptables -A FORWARD -i wlan0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+# 4. Save iptables rules
+sudo netfilter-persistent save
+
+================================================================================
+# PART 4: ROUTING ON VPS (To reach M2)
+================================================================================
+
+# Add route to M2 via Kali's VPN IP
+sudo ip route add 192.168.10.18 via 10.8.0.5
+
+# Verify route
+ip route | grep 192.168.10.18
+
+================================================================================
+# PART 5: TESTING THE SETUP
+================================================================================
+
+# Test 1: VPS -> Kali (VPN)
+ping 10.8.0.5
+
+# Test 2: Kali -> VPS (VPN)
+ping 10.8.0.1
+
+# Test 3: Kali -> M2 (Local WiFi)
+ping 192.168.10.18
+
+# Test 4: VPS -> M2 (Through VPN + Port Forward)
+ping 192.168.10.18
+nmap -Pn 192.168.10.18
+
+================================================================================
+# PART 6: TROUBLESHOOTING
+================================================================================
+
+# If VPN connection fails:
+# 1. Check WireGuard status
+sudo wg show
+
+# 2. Check if port 51820 is open on VPS
+sudo netstat -ulnp | grep 51820
+
+# 3. Restart WireGuard
+sudo wg-quick down wg0
+sudo wg-quick up wg0
+
+# 4. Check firewall
+sudo ufw status
+
+# If VPS can't ping M2:
+# 1. Verify M2 IP hasn't changed
+ssh -p 2222 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa msfadmin@127.0.0.1
+ifconfig eth0
+
+# 2. Update iptables rules with new M2 IP
+sudo iptables -t nat -F
+sudo iptables -t nat -A PREROUTING -i wg0 -j DNAT --to-destination [NEW_M2_IP]
+
+# 3. Update route on VPS
+sudo ip route del 192.168.10.18
+sudo ip route add [NEW_M2_IP] via 10.8.0.5
+
+================================================================================
+# PART 7: KEY INFORMATION
+================================================================================
+
+# VPS (Server) Details:
+# - Public IP: 64.23.223.93
+# - VPN IP: 10.8.0.1
+# - WireGuard Port: 51820
+# - Public Key: ItLXH4EHW/VPBz8yLVZR1sNND+O4ofksxVmUC169BVk=
+
+# Kali (Client) Details:
+# - Local IP: 192.168.10.15
+# - VPN IP: 10.8.0.5
+# - Public Key: oI1sVvDLEc+9He8aW0ANZ7/cNpSJ/xlbzvCj95bHehU=
+
+# M2 (Target) Details:
+# - IP: 192.168.10.18 (DHCP - may change on reboot)
+# - VirtualBox Network: Bridged Adapter
+# - Connection: Through Kali's WiFi
+
+================================================================================
+# PART 8: AUTOMATIC STARTUP
+================================================================================
+
+# VPS - Enable WireGuard on boot
+sudo systemctl enable wg-quick@wg0
+
+# Kali - WireGuard starts automatically with wg-quick up
+# To make it permanent, add to startup:
+echo "sudo wg-quick up wg0" | sudo tee -a /etc/rc.local
+sudo chmod +x /etc/rc.local
+
+================================================================================
+# END OF DOCUMENTATION
+================================================================================

@@ -94,7 +94,7 @@ export function MfaSetupModal({
     setLoading(true)
     try {
       // Check both token keys for compatibility
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
 
       if (!token) {
         toast({
@@ -106,7 +106,7 @@ export function MfaSetupModal({
         return
       }
 
-      const response = await fetch('http://localhost:8000/mfa/setup/initiate', {
+      const response = await fetch('http://localhost:8000/api/mfa/setup/initiate', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -158,8 +158,8 @@ export function MfaSetupModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/mfa/setup/complete', {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/mfa/setup/complete', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -214,8 +214,8 @@ export function MfaSetupModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/mfa/disable', {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/mfa/disable', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -263,8 +263,8 @@ export function MfaSetupModal({
   const regenerateRecoveryCodes = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/mfa/recovery/regenerate', {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/mfa/recovery/regenerate', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

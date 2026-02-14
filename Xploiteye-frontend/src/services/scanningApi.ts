@@ -79,14 +79,14 @@ class ScanningApiService {
    */
   async getResultsDirectFallback(scanId: string): Promise<DirectScanResult> {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
       if (!token) {
         throw new Error('No authentication token found')
       }
 
       console.log(`🔄 [DIRECT FALLBACK] Using direct fetch for scan: ${scanId}`)
 
-      const response = await fetch(`http://localhost:8000/scanning/results-direct/${scanId}`, {
+      const response = await fetch(`http://localhost:8000/api/scanning/results-direct/${scanId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

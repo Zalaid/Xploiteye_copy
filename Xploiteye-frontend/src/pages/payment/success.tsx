@@ -46,7 +46,7 @@ const PaymentSuccess: FC<PaymentSuccessProps> = () => {
 
       try {
         // Safe localStorage access (only on client)
-        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || localStorage.getItem('token') : null;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || localStorage.getItem('access_token') : null;
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/payfast/verify`,
@@ -93,7 +93,7 @@ const PaymentSuccess: FC<PaymentSuccessProps> = () => {
   const downloadInvoice = async () => {
     try {
       // Safe localStorage access (only on client)
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || localStorage.getItem('token') : null;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') || localStorage.getItem('access_token') : null;
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/payfast/invoice/${paymentDetails?.transaction_id || transaction_id}`,

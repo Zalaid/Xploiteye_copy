@@ -59,7 +59,7 @@ export function MfaVerificationModal({
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
       if (!token) {
         toast({
           title: 'Error',
@@ -69,7 +69,7 @@ export function MfaVerificationModal({
         return
       }
 
-      const response = await fetch('http://localhost:8000/mfa/verify', {
+      const response = await fetch('http://localhost:8000/api/mfa/verify', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

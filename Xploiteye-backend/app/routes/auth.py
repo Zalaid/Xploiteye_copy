@@ -8,6 +8,7 @@ from app.models.user import (
     UserCreate, UserLogin, UserResponse, Token, 
     MessageResponse, ErrorResponse, UserInDB, UserProfileUpdate, PasswordChangeRequest
 )
+from config.settings import settings
 from pydantic import BaseModel
 
 class SessionTokenRequest(BaseModel):
@@ -230,7 +231,7 @@ async def upload_profile_image(
             "avatar_gridfs_id": image_result.gridfs_id
         })
         
-        return {"message": "Profile image uploaded successfully", "image_url": f"/auth/profile-image/{current_user.id}"}
+        return {"message": "Profile image uploaded successfully", "image_url": f"/api/auth/profile-image/{current_user.id}"}
         
     except HTTPException:
         raise
@@ -524,9 +525,11 @@ async def google_exchange_code(
 
         if user.mfa_enabled and user.mfa_setup_complete:
             temp_token = SecurityUtils.create_temp_token(data={"sub": str(user.id), "type": "mfa_temp"})
-            base_url = settings.frontend_url.rstrip("/")
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url=f"{base_url}/signin?mfa_required=true&temp_token={temp_token}&email={user.email}")
+            return {
+                "mfa_required": True,
+                "temp_token": temp_token,
+                "email": user.email
+            }
 
         access_token = SecurityUtils.create_access_token(data={"sub": str(user.id)})
         jti = SecurityUtils.extract_jti_from_token(access_token)

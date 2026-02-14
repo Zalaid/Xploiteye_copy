@@ -34,7 +34,7 @@ interface StartExploitationResponse {
 export async function startExploitation(
   service: ScannedService
 ): Promise<StartExploitationResponse> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
 
   if (!token) {
     const error = '❌ No authentication token found - Please log in first';
@@ -155,7 +155,7 @@ export async function startExploitation(
  * Get exploitation status
  */
 export async function getExploitationStatus(exploitationId: string): Promise<any> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
 
   if (!token) {
     throw new Error('No authentication token found');
@@ -186,7 +186,7 @@ export async function getExploitationStatus(exploitationId: string): Promise<any
  * Stop exploitation
  */
 export async function stopExploitation(exploitationId: string): Promise<any> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
 
   if (!token) {
     throw new Error('No authentication token found');

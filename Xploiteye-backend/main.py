@@ -61,6 +61,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add logging middleware for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    from loguru import logger
+    logger.info(f"REQ: {request.method} {request.url.path}")
+    response = await call_next(request)
+    logger.info(f"RES: {response.status_code} for {request.url.path}")
+    return response
+
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(email_verification.router, prefix="/api")  # Email verification routes

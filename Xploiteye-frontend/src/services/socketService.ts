@@ -10,7 +10,7 @@ class SocketService {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
 
         console.log(`🔵 [SOCKET] Attempting to connect to: ${this.url}/red-agent`);
 

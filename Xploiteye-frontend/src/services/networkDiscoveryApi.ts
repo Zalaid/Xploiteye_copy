@@ -42,7 +42,7 @@ export interface NetworkDiscoveryResponse {
  */
 function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('auth_token')
+    return localStorage.getItem('access_token')
   }
   return null
 }
@@ -73,7 +73,7 @@ export async function startNetworkDiscovery(
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const response = await fetch(`${API_BASE_URL}/scanning/network-discovery`, {
+    const response = await fetch(`${API_BASE_URL}/api/scanning/network-discovery`, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
@@ -107,7 +107,7 @@ export async function checkIPReachability(target: string): Promise<{
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/scanning/check-ip`, {
+    const response = await fetch(`${API_BASE_URL}/api/scanning/check-ip`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

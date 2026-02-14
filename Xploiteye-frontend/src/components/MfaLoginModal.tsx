@@ -49,7 +49,7 @@ export function MfaLoginModal({
           : { totp_code: mfaCode })
       }
 
-      const response = await fetch('http://localhost:8000/mfa/login/complete', {
+      const response = await fetch('http://localhost:8000/api/mfa/login/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

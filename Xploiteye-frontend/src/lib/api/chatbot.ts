@@ -101,7 +101,7 @@ export const uploadAPI = {
 
 export const queryAPI = {
   query: async (data: { query: string; session_id?: string; conversation_id?: string }) => {
-    const response = await api.post('/api/rag/query/', data, {
+    const response = await api.post('/api/rag/query', data, {
       headers: getAuthHeaders()
     });
     return response.data;
@@ -166,7 +166,7 @@ export const chatAPI = {
 
 export const sessionAPI = {
   getSessions: async () => {
-    const response = await api.get('/api/rag/sessions/', {
+    const response = await api.get('/api/rag/sessions', {
       headers: getAuthHeaders()
     });
     return response.data;

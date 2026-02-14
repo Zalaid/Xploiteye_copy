@@ -35,6 +35,18 @@ export default function GoogleCallbackPage() {
         }
 
         const data = await res.json();
+
+        // Handle MFA requirement
+        if (data.mfa_required) {
+          const mfaParams = new URLSearchParams({
+            mfa_required: 'true',
+            temp_token: data.temp_token,
+            email: data.email || ''
+          });
+          router.replace(`/signin?${mfaParams.toString()}`);
+          return;
+        }
+
         const session = data.session_token;
         const redirectUrl = data.redirect_url;
 

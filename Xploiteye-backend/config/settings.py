@@ -162,11 +162,11 @@ class Settings(BaseSettings):
     
     # Guardrails
     enable_guardrails: bool = Field(default=True)
-    guardrails_classification_model: str = Field(default="llama-guard-3-8b")
+    guardrails_classification_model: str = Field(default="llama-3.1-8b-instant")
     enable_llm_classification: bool = Field(default=True)
     max_query_length: int = Field(default=1000)
     max_response_length: int = Field(default=4000)
-    allow_off_topic: bool = Field(default=False)
+    allow_off_topic: bool = Field(default=True)
     
     # Session Configuration
     session_expire_days: int = Field(default=30)

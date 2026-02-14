@@ -251,7 +251,7 @@ export function ScanningModule() {
 
   // Get wait time before starting progress (when to go to 95% and wait)
   const getProgressWaitTime = (scanType: string): number => {
-    switch(scanType.toLowerCase()) {
+    switch (scanType.toLowerCase()) {
       case 'light': return 43 * 1000 // 43 seconds
       case 'medium': return 50 * 1000 // 50 seconds
       case 'deep': return 60 * 1000 // 60 seconds (estimated)
@@ -363,117 +363,117 @@ export function ScanningModule() {
 
   // Simple scan state management - no complex versioning or user isolation
   const CURRENT_SCAN_KEY = 'xploiteye_current_scan'
-const GLOBAL_PROGRESS_KEY = 'xploiteye_global_progress'
+  const GLOBAL_PROGRESS_KEY = 'xploiteye_global_progress'
 
-// Global Progress Manager - runs independent of page
-class GlobalProgressManager {
-  private static instance: GlobalProgressManager
-  private progressInterval: NodeJS.Timeout | null = null
-  private isRunning = false
+  // Global Progress Manager - runs independent of page
+  class GlobalProgressManager {
+    private static instance: GlobalProgressManager
+    private progressInterval: NodeJS.Timeout | null = null
+    private isRunning = false
 
-  static getInstance(): GlobalProgressManager {
-    if (!GlobalProgressManager.instance) {
-      GlobalProgressManager.instance = new GlobalProgressManager()
-    }
-    return GlobalProgressManager.instance
-  }
-
-  startGlobalProgress(scanId: string, scanType: string) {
-    if (this.isRunning) {
-      console.log('🌐 [GLOBAL] Progress already running')
-      return
-    }
-
-    console.log(`🌐 [GLOBAL] Starting global progress for scan ${scanId}`)
-    this.isRunning = true
-
-    // Get scan duration based on scan type (how long to reach 95%)
-    const getScanDuration = (type: string): number => {
-      switch (type) {
-        case 'light': return 43  // 43 seconds
-        case 'medium': return 50 // 50 seconds
-        case 'deep': return 130   // 130 seconds
-        default: return 43
+    static getInstance(): GlobalProgressManager {
+      if (!GlobalProgressManager.instance) {
+        GlobalProgressManager.instance = new GlobalProgressManager()
       }
+      return GlobalProgressManager.instance
     }
 
-    const scanDuration = getScanDuration(scanType)
-    const startTime = Date.now()
+    startGlobalProgress(scanId: string, scanType: string) {
+      if (this.isRunning) {
+        console.log('🌐 [GLOBAL] Progress already running')
+        return
+      }
 
-    // Save global progress data
-    const globalProgressData = {
-      scanId,
-      scanType,
-      startTime,
-      scanDuration,
-      isActive: true
-    }
-    localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalProgressData))
+      console.log(`🌐 [GLOBAL] Starting global progress for scan ${scanId}`)
+      this.isRunning = true
 
-    // Update progress every 500ms globally
-    this.progressInterval = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000
-      const progress = Math.min((elapsed / scanDuration) * 95, 95) // Cap at 95%
-
-      // Update global progress in localStorage
-      const currentData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
-      if (currentData.scanId === scanId && currentData.isActive) {
-        currentData.currentProgress = progress
-        localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(currentData))
-
-        // Also update the main scan state
-        const scanState = localStorage.getItem(CURRENT_SCAN_KEY)
-        if (scanState) {
-          const state = JSON.parse(scanState)
-          if (state.currentScanId === scanId && state.isScanning) {
-            state.scanProgress = progress
-            localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
-          }
+      // Get scan duration based on scan type (how long to reach 95%)
+      const getScanDuration = (type: string): number => {
+        switch (type) {
+          case 'light': return 43  // 43 seconds
+          case 'medium': return 50 // 50 seconds
+          case 'deep': return 130   // 130 seconds
+          default: return 43
         }
-
-        console.log(`🌐 [GLOBAL] Progress updated: ${Math.round(progress)}%`)
-      } else {
-        // Scan completed or changed, stop global progress
-        this.stopGlobalProgress()
       }
-    }, 500)
+
+      const scanDuration = getScanDuration(scanType)
+      const startTime = Date.now()
+
+      // Save global progress data
+      const globalProgressData = {
+        scanId,
+        scanType,
+        startTime,
+        scanDuration,
+        isActive: true
+      }
+      localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(globalProgressData))
+
+      // Update progress every 500ms globally
+      this.progressInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000
+        const progress = Math.min((elapsed / scanDuration) * 95, 95) // Cap at 95%
+
+        // Update global progress in localStorage
+        const currentData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+        if (currentData.scanId === scanId && currentData.isActive) {
+          currentData.currentProgress = progress
+          localStorage.setItem(GLOBAL_PROGRESS_KEY, JSON.stringify(currentData))
+
+          // Also update the main scan state
+          const scanState = localStorage.getItem(CURRENT_SCAN_KEY)
+          if (scanState) {
+            const state = JSON.parse(scanState)
+            if (state.currentScanId === scanId && state.isScanning) {
+              state.scanProgress = progress
+              localStorage.setItem(CURRENT_SCAN_KEY, JSON.stringify(state))
+            }
+          }
+
+          console.log(`🌐 [GLOBAL] Progress updated: ${Math.round(progress)}%`)
+        } else {
+          // Scan completed or changed, stop global progress
+          this.stopGlobalProgress()
+        }
+      }, 500)
+    }
+
+    stopGlobalProgress() {
+      if (this.progressInterval) {
+        clearInterval(this.progressInterval)
+        this.progressInterval = null
+      }
+      this.isRunning = false
+
+      // Remove global progress data completely when stopping
+      localStorage.removeItem(GLOBAL_PROGRESS_KEY)
+      console.log('🌐 [GLOBAL] Global progress stopped and removed from localStorage')
+    }
+
+    getCurrentProgress(scanId: string): number {
+      const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
+      console.log(`🌐 [GLOBAL] getCurrentProgress called for ${scanId}:`, globalData)
+
+      if (globalData.scanId === scanId && globalData.isActive) {
+        console.log(`🌐 [GLOBAL] Returning progress: ${globalData.currentProgress}`)
+        return globalData.currentProgress || 0
+      }
+
+      // Fallback: try to get progress from main scan state if global progress isn't active
+      const scanState = JSON.parse(localStorage.getItem(CURRENT_SCAN_KEY) || '{}')
+      if (scanState.currentScanId === scanId && scanState.isScanning) {
+        console.log(`🌐 [GLOBAL] Fallback to scan state progress: ${scanState.scanProgress}`)
+        return scanState.scanProgress || 0
+      }
+
+      console.log(`🌐 [GLOBAL] No progress found for ${scanId}`)
+      return 0
+    }
   }
 
-  stopGlobalProgress() {
-    if (this.progressInterval) {
-      clearInterval(this.progressInterval)
-      this.progressInterval = null
-    }
-    this.isRunning = false
-
-    // Remove global progress data completely when stopping
-    localStorage.removeItem(GLOBAL_PROGRESS_KEY)
-    console.log('🌐 [GLOBAL] Global progress stopped and removed from localStorage')
-  }
-
-  getCurrentProgress(scanId: string): number {
-    const globalData = JSON.parse(localStorage.getItem(GLOBAL_PROGRESS_KEY) || '{}')
-    console.log(`🌐 [GLOBAL] getCurrentProgress called for ${scanId}:`, globalData)
-
-    if (globalData.scanId === scanId && globalData.isActive) {
-      console.log(`🌐 [GLOBAL] Returning progress: ${globalData.currentProgress}`)
-      return globalData.currentProgress || 0
-    }
-
-    // Fallback: try to get progress from main scan state if global progress isn't active
-    const scanState = JSON.parse(localStorage.getItem(CURRENT_SCAN_KEY) || '{}')
-    if (scanState.currentScanId === scanId && scanState.isScanning) {
-      console.log(`🌐 [GLOBAL] Fallback to scan state progress: ${scanState.scanProgress}`)
-      return scanState.scanProgress || 0
-    }
-
-    console.log(`🌐 [GLOBAL] No progress found for ${scanId}`)
-    return 0
-  }
-}
-
-// Global instance
-const globalProgressManager = GlobalProgressManager.getInstance()
+  // Global instance
+  const globalProgressManager = GlobalProgressManager.getInstance()
 
   // Simple state management functions
   const saveScanStateToStorage = () => {
@@ -773,10 +773,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     console.log(`🟡 [IP CHECK UI] Set isCheckingIP=true, showing yellow overlay`)
 
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token')
       console.log(`🟡 [IP CHECK API] Calling backend check-ip endpoint for: ${targetIP}`)
 
-      const response = await fetch('http://localhost:8000/scanning/check-ip', {
+      const response = await fetch('http://localhost:8000/api/scanning/check-ip', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -917,8 +917,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
   const generateReport = async (scanId: string) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/scanning/generate-report', {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/scanning/generate-report', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1399,8 +1399,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     console.log(`Launching ${scanType} scan on ${targetInput}`)
 
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/scanning/start', {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/scanning/start', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1520,7 +1520,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     }
 
     setIsPolling(true)
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+    const token = localStorage.getItem('access_token')
     let shouldContinuePolling = true
     let pollCount = 0
 
@@ -1568,7 +1568,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
       try {
         console.log(`📡 [POLLING] Making API call for scan ${scanId}`)
-        const response = await fetch(`http://localhost:8000/scanning/status/${scanId}`, {
+        const response = await fetch(`http://localhost:8000/api/scanning/status/${scanId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -1848,7 +1848,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
                 // Play completion sound notification
                 try {
-                  const audio = new Audio('/scan-complete.wav'); 
+                  const audio = new Audio('/scan-complete.wav');
                   audio.volume = 0.3
                   audio.play().catch(e => console.log('Audio play failed:', e))
                 } catch (e) {
@@ -1919,7 +1919,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
 
             // Play completion sound notification
             try {
-              const audio = new Audio('/scan-complete.wav'); 
+              const audio = new Audio('/scan-complete.wav');
               audio.volume = 0.3
               audio.play().catch(e => console.log('Audio play failed:', e))
             } catch (e) {
@@ -2040,9 +2040,9 @@ const globalProgressManager = GlobalProgressManager.getInstance()
       } catch (error) {
         // Check if this is a VPN-related network error (common during IP switching)
         const isNetworkError = error instanceof TypeError &&
-                              (error.message.includes('fetch') ||
-                               error.message.includes('NetworkError') ||
-                               error.message.includes('Failed to fetch'))
+          (error.message.includes('fetch') ||
+            error.message.includes('NetworkError') ||
+            error.message.includes('Failed to fetch'))
 
         if (isNetworkError) {
           // Silently handle VPN switching - just log to console for debugging
@@ -2068,8 +2068,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
   // Store CVEs from scan results
   const storeCVEsFromScan = async (scanId: string, vulnerabilities: any[]) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/scanning/store-cves', {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/scanning/store-cves', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2159,7 +2159,7 @@ const globalProgressManager = GlobalProgressManager.getInstance()
     // Clean up scan data, but preserve active scan
     Object.keys(localStorage).forEach(key => {
       if (!key.includes('token') && !key.includes('user_id') && !key.includes('auth') &&
-          (key.includes('scan_') || key.includes('xploiteye') || key.includes('progress_'))) {
+        (key.includes('scan_') || key.includes('xploiteye') || key.includes('progress_'))) {
 
         // Don't remove the current active scan data
         if (key === CURRENT_SCAN_KEY && activeScanId) {
@@ -2438,11 +2438,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
         />
 
         <div className="relative z-10 space-y-8">
-          <div className={`bg-gradient-to-br from-gray-800/50 to-gray-900/30 rounded-xl p-8 border transition-all duration-300 relative ${
-            isScanning
-              ? "border-gray-600/30 opacity-60"
-              : "border-green-500/30"
-          }`}>
+          <div className={`bg-gradient-to-br from-gray-800/50 to-gray-900/30 rounded-xl p-8 border transition-all duration-300 relative ${isScanning
+            ? "border-gray-600/30 opacity-60"
+            : "border-green-500/30"
+            }`}>
             {/* Overlay when scanning or checking IP to block all interaction */}
             {(isScanning || isCheckingIP) && (
               <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[1px] rounded-xl z-10 pointer-events-auto cursor-not-allowed" />
@@ -2450,100 +2449,98 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             {/* Target Input Section - Only show for vulnerability assessment */}
             {selectedScanMode === 'vulnerability-scan' && (
               <div className="mb-8 text-center">
-              <h3 className="text-2xl font-semibold text-green-400 mb-6 flex items-center justify-center">
-                <Target className="w-6 h-6 mr-3" />
-                Enter Your Target
-              </h3>
-              <div className="flex justify-center">
-                <div className="relative w-full max-w-2xl">
-                  {(isScanning || scanStatus === 'scanning') ? (
-                    // Disabled mock input during scan - completely uneditable
-                    <div
-                      className="text-lg px-6 py-6 border-gray-500/30 text-gray-400 bg-gray-600/30 opacity-40 cursor-not-allowed border rounded-xl select-none pointer-events-none transition-all duration-300 w-full text-center"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setScanErrorMessage("Cannot modify target during active scan. Please wait for current scan to complete.")
-                        setTimeout(() => setScanErrorMessage(""), 3000)
-                      }}
-                    >
-                      {targetInput || "Scan in progress - please wait..."}
-                    </div>
-                  ) : (
-                    // Normal input when not scanning
-                    <Input
-                      placeholder={
-                        isNetworkDiscoveryLoading
-                          ? "Network discovery in progress..."
-                          : "Enter IP address or network range (e.g., 192.168.1.1, 10.0.0.0/24)"
-                      }
-                      value={targetInput}
-                      onChange={(e) => {
-                        // Extra safety check
-                        if (isScanning || (scanStatus as string) === 'scanning' || isNetworkDiscoveryLoading) {
-                          setScanErrorMessage("Cannot modify target during active scan!")
+                <h3 className="text-2xl font-semibold text-green-400 mb-6 flex items-center justify-center">
+                  <Target className="w-6 h-6 mr-3" />
+                  Enter Your Target
+                </h3>
+                <div className="flex justify-center">
+                  <div className="relative w-full max-w-2xl">
+                    {(isScanning || scanStatus === 'scanning') ? (
+                      // Disabled mock input during scan - completely uneditable
+                      <div
+                        className="text-lg px-6 py-6 border-gray-500/30 text-gray-400 bg-gray-600/30 opacity-40 cursor-not-allowed border rounded-xl select-none pointer-events-none transition-all duration-300 w-full text-center"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setScanErrorMessage("Cannot modify target during active scan. Please wait for current scan to complete.")
                           setTimeout(() => setScanErrorMessage(""), 3000)
-                          return
+                        }}
+                      >
+                        {targetInput || "Scan in progress - please wait..."}
+                      </div>
+                    ) : (
+                      // Normal input when not scanning
+                      <Input
+                        placeholder={
+                          isNetworkDiscoveryLoading
+                            ? "Network discovery in progress..."
+                            : "Enter IP address or network range (e.g., 192.168.1.1, 10.0.0.0/24)"
                         }
-                        setScanErrorMessage("")
-                        handleIPInputChange(e.target.value)
-                      }}
-                      disabled={isScanning || isNetworkDiscoveryLoading}
-                      className={`text-lg px-6 py-6 border-cyan-500/30 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder:text-gray-400 transition-all duration-300 rounded-xl text-center w-full shadow-lg ${
-                        ipValidationError ? 'border-red-500/50 focus:border-red-500/70 focus:ring-red-500/20' : ''
-                      } ${
-                        isScanning || isNetworkDiscoveryLoading
-                          ? 'bg-gray-700/60 cursor-not-allowed opacity-60'
-                          : 'bg-slate-800/60 hover:bg-slate-800/80'
-                      }`}
-                    />
-                  )}
-                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                    <Target className="w-5 h-5 text-green-400" />
+                        value={targetInput}
+                        onChange={(e) => {
+                          // Extra safety check
+                          if (isScanning || (scanStatus as string) === 'scanning' || isNetworkDiscoveryLoading) {
+                            setScanErrorMessage("Cannot modify target during active scan!")
+                            setTimeout(() => setScanErrorMessage(""), 3000)
+                            return
+                          }
+                          setScanErrorMessage("")
+                          handleIPInputChange(e.target.value)
+                        }}
+                        disabled={isScanning || isNetworkDiscoveryLoading}
+                        className={`text-lg px-6 py-6 border-cyan-500/30 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder:text-gray-400 transition-all duration-300 rounded-xl text-center w-full shadow-lg ${ipValidationError ? 'border-red-500/50 focus:border-red-500/70 focus:ring-red-500/20' : ''
+                          } ${isScanning || isNetworkDiscoveryLoading
+                            ? 'bg-gray-700/60 cursor-not-allowed opacity-60'
+                            : 'bg-slate-800/60 hover:bg-slate-800/80'
+                          }`}
+                      />
+                    )}
+                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                      <Target className="w-5 h-5 text-green-400" />
+                    </div>
                   </div>
                 </div>
+
+                {/* IP Validation Error Message */}
+                {ipValidationError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center justify-center space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
+                  >
+                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <span className="text-red-400 text-sm">{ipValidationError}</span>
+                  </motion.div>
+                )}
+
+                {/* Valid IP Indicator */}
+                {isValidIP && targetInput.trim() && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center justify-center space-x-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
+                  >
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-green-400 text-sm">Valid local network target</span>
+                  </motion.div>
+                )}
+
+
+                {/* Error message for scan attempts during active scan */}
+                {scanErrorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center justify-center space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
+                  >
+                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <span className="text-red-400 text-sm">{scanErrorMessage}</span>
+                  </motion.div>
+                )}
               </div>
-
-              {/* IP Validation Error Message */}
-              {ipValidationError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center justify-center space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
-                >
-                  <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                  <span className="text-red-400 text-sm">{ipValidationError}</span>
-                </motion.div>
-              )}
-
-              {/* Valid IP Indicator */}
-              {isValidIP && targetInput.trim() && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center justify-center space-x-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
-                >
-                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  <span className="text-green-400 text-sm">Valid local network target</span>
-                </motion.div>
-              )}
-
-
-              {/* Error message for scan attempts during active scan */}
-              {scanErrorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center justify-center space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg mt-4 max-w-2xl mx-auto"
-                >
-                  <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                  <span className="text-red-400 text-sm">{scanErrorMessage}</span>
-                </motion.div>
-              )}
-            </div>
             )}
 
             {/* Scan Mode Selection - Always Visible */}
@@ -2647,9 +2644,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                 transition={{ duration: 0.3 }}
                 className="mt-6 relative"
               >
-                <div className={`bg-gray-800/40 border border-gray-700/50 rounded-xl p-6 backdrop-blur-sm transition-all duration-300 ${
-                  isScanning || isCheckingIP ? 'opacity-30 pointer-events-none' : ''
-                }`}>
+                <div className={`bg-gray-800/40 border border-gray-700/50 rounded-xl p-6 backdrop-blur-sm transition-all duration-300 ${isScanning || isCheckingIP ? 'opacity-30 pointer-events-none' : ''
+                  }`}>
                   <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center justify-center">
                     <Zap className="w-5 h-5 mr-2" />
                     Select Scan Intensity
@@ -2662,11 +2658,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
                       whileHover={!isScanning ? { scale: 1.02, y: -2 } : {}}
-                      className={`p-5 border rounded-lg transition-all ${
-                        isScanning
-                          ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
-                          : "border-green-500/20 bg-green-500/5 hover:border-green-500/30 cursor-pointer"
-                      }`}
+                      className={`p-5 border rounded-lg transition-all ${isScanning
+                        ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
+                        : "border-green-500/20 bg-green-500/5 hover:border-green-500/30 cursor-pointer"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
@@ -2689,11 +2684,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                         )}
                       </div>
                       <Button
-                        className={`w-full text-white ${
-                          isScanning
-                            ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
-                            : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                        }`}
+                        className={`w-full text-white ${isScanning
+                          ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
+                          : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                          }`}
                         onClick={() => handleScanButtonClick("light")}
                         disabled={!targetInput.trim() || !isValidIP || isScanning || isCheckingIP}
                       >
@@ -2708,11 +2702,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2 }}
                       whileHover={!isScanning ? { scale: 1.02, y: -2 } : {}}
-                      className={`p-5 border rounded-lg transition-all ${
-                        isScanning
-                          ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
-                          : "border-blue-500/20 bg-blue-500/5 hover:border-blue-500/30 cursor-pointer"
-                      }`}
+                      className={`p-5 border rounded-lg transition-all ${isScanning
+                        ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
+                        : "border-blue-500/20 bg-blue-500/5 hover:border-blue-500/30 cursor-pointer"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
@@ -2735,11 +2728,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                         )}
                       </div>
                       <Button
-                        className={`w-full text-white ${
-                          isScanning
-                            ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
-                            : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                        }`}
+                        className={`w-full text-white ${isScanning
+                          ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
+                          : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                          }`}
                         onClick={() => handleScanButtonClick("medium")}
                         disabled={!targetInput.trim() || !isValidIP || isScanning || isCheckingIP}
                       >
@@ -2754,11 +2746,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
                       whileHover={!isScanning ? { scale: 1.02, y: -2 } : {}}
-                      className={`p-5 border rounded-lg transition-all ${
-                        isScanning
-                          ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
-                          : "border-red-500/20 bg-red-500/5 hover:border-red-500/30 cursor-pointer"
-                      }`}
+                      className={`p-5 border rounded-lg transition-all ${isScanning
+                        ? "border-gray-500/20 bg-gray-500/5 opacity-50 cursor-not-allowed"
+                        : "border-red-500/20 bg-red-500/5 hover:border-red-500/30 cursor-pointer"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
@@ -2781,11 +2772,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                         )}
                       </div>
                       <Button
-                        className={`w-full text-white ${
-                          isScanning
-                            ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
-                            : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
-                        }`}
+                        className={`w-full text-white ${isScanning
+                          ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
+                          : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                          }`}
                         onClick={() => handleScanButtonClick("deep")}
                         disabled={!targetInput.trim() || !isValidIP || isScanning || isCheckingIP}
                       >
@@ -2806,15 +2796,13 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                   whileHover={!isNetworkDiscoveryLoading ? { scale: 1.02, y: -2 } : {}}
-                  className={`bg-gradient-to-br from-cyan-900/30 to-blue-900/20 backdrop-blur-sm rounded-2xl p-6 border border-cyan-500/20 shadow-xl transition-all duration-300 ${
-                    isNetworkDiscoveryLoading ? 'opacity-70 pointer-events-none' : ''
-                  }`}
+                  className={`bg-gradient-to-br from-cyan-900/30 to-blue-900/20 backdrop-blur-sm rounded-2xl p-6 border border-cyan-500/20 shadow-xl transition-all duration-300 ${isNetworkDiscoveryLoading ? 'opacity-70 pointer-events-none' : ''
+                    }`}
                 >
                   <div className="text-center mb-4">
                     <div className="relative">
-                      <Network className={`w-12 h-12 text-cyan-400 mx-auto mb-3 transition-all duration-300 ${
-                        isNetworkDiscoveryLoading ? 'animate-pulse' : ''
-                      }`} />
+                      <Network className={`w-12 h-12 text-cyan-400 mx-auto mb-3 transition-all duration-300 ${isNetworkDiscoveryLoading ? 'animate-pulse' : ''
+                        }`} />
                       {isNetworkDiscoveryLoading && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
@@ -2831,11 +2819,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                   </div>
 
                   <Button
-                    className={`w-full text-white transition-all duration-300 ${
-                      isNetworkDiscoveryLoading
-                        ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
-                        : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
-                    }`}
+                    className={`w-full text-white transition-all duration-300 ${isNetworkDiscoveryLoading
+                      ? "bg-gradient-to-r from-gray-500 to-gray-600 cursor-not-allowed"
+                      : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                      }`}
                     onClick={() => handleNetworkDiscovery()}
                     disabled={isNetworkDiscoveryLoading}
                   >
@@ -2883,67 +2870,65 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             {/* IP Checking Overlay - Phase 1 */}
             {isCheckingIP && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
-                    <div className={`text-center p-8 bg-gray-900 rounded-xl shadow-2xl max-w-md mx-4 ${
-                      ipCheckMessage.startsWith('❌')
-                        ? 'border border-red-500/50'
-                        : ipCheckMessage.startsWith('✅')
-                        ? 'border border-green-500/50'
-                        : 'border border-yellow-500/50'
+                <div className={`text-center p-8 bg-gray-900 rounded-xl shadow-2xl max-w-md mx-4 ${ipCheckMessage.startsWith('❌')
+                  ? 'border border-red-500/50'
+                  : ipCheckMessage.startsWith('✅')
+                    ? 'border border-green-500/50'
+                    : 'border border-yellow-500/50'
+                  }`}>
+                  <div className="flex items-center justify-center mb-4">
+                    {ipCheckMessage.startsWith('❌') ? (
+                      <XCircle className="w-8 h-8 text-red-400 mr-3" />
+                    ) : ipCheckMessage.startsWith('✅') ? (
+                      <CheckCircle className="w-8 h-8 text-green-400 mr-3" />
+                    ) : (
+                      <div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    )}
+                    <div className="text-xl font-semibold text-white">
+                      {ipCheckMessage.startsWith('❌') ? 'IP Check Failed' :
+                        ipCheckMessage.startsWith('✅') ? 'IP Check Success' :
+                          'Checking IP Reachability'}
+                    </div>
+                  </div>
+                  <div className={`mb-3 font-medium text-lg ${ipCheckMessage.startsWith('❌') ? 'text-red-200' :
+                    ipCheckMessage.startsWith('✅') ? 'text-green-200' :
+                      'text-yellow-200'
                     }`}>
-                      <div className="flex items-center justify-center mb-4">
-                        {ipCheckMessage.startsWith('❌') ? (
-                          <XCircle className="w-8 h-8 text-red-400 mr-3" />
-                        ) : ipCheckMessage.startsWith('✅') ? (
-                          <CheckCircle className="w-8 h-8 text-green-400 mr-3" />
-                        ) : (
-                          <div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mr-3"></div>
-                        )}
-                        <div className="text-xl font-semibold text-white">
-                          {ipCheckMessage.startsWith('❌') ? 'IP Check Failed' :
-                           ipCheckMessage.startsWith('✅') ? 'IP Check Success' :
-                           'Checking IP Reachability'}
-                        </div>
-                      </div>
-                      <div className={`mb-3 font-medium text-lg ${
-                        ipCheckMessage.startsWith('❌') ? 'text-red-200' :
-                        ipCheckMessage.startsWith('✅') ? 'text-green-200' :
-                        'text-yellow-200'
-                      }`}>
-                        {ipCheckMessage}
-                      </div>
-                      <div className="text-sm text-gray-300">
-                        {ipCheckMessage.startsWith('❌') ? 'IP is not responding to network requests' :
-                         ipCheckMessage.startsWith('✅') ? 'IP is active and ready for scanning' :
-                         'Using arping to verify network connectivity'}
-                      </div>
-                    </div>
+                    {ipCheckMessage}
                   </div>
-                )}
+                  <div className="text-sm text-gray-300">
+                    {ipCheckMessage.startsWith('❌') ? 'IP is not responding to network requests' :
+                      ipCheckMessage.startsWith('✅') ? 'IP is active and ready for scanning' :
+                        'Using arping to verify network connectivity'}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                {/* Scanning Overlay - Phase 2 - Outside the blurred container */}
-                {isScanning && !isCheckingIP && (
-                  <div className="absolute inset-0 flex items-center justify-center z-50">
-                    <div className="text-center p-8 bg-gray-900 rounded-xl border border-blue-500/50 shadow-2xl max-w-md mx-4">
-                      <div className="flex items-center justify-center mb-4">
-                        <Activity className="w-8 h-8 text-blue-400 animate-pulse mr-3" />
-                        <div className="text-xl font-semibold text-white">
-                          {currentScanType ? `${currentScanType.charAt(0).toUpperCase() + currentScanType.slice(1)} Scan` : 'Scan'} in Progress
-                        </div>
-                      </div>
-                      <div className="text-blue-200 mb-3 font-medium text-lg">
-                        Scanning {targetInput}...
-                      </div>
-                      <div className="text-sm text-gray-300">
-                        Please wait for the current scan to complete before starting a new one
-                      </div>
-                      <div className="mt-6 flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-                        <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
+            {/* Scanning Overlay - Phase 2 - Outside the blurred container */}
+            {isScanning && !isCheckingIP && (
+              <div className="absolute inset-0 flex items-center justify-center z-50">
+                <div className="text-center p-8 bg-gray-900 rounded-xl border border-blue-500/50 shadow-2xl max-w-md mx-4">
+                  <div className="flex items-center justify-center mb-4">
+                    <Activity className="w-8 h-8 text-blue-400 animate-pulse mr-3" />
+                    <div className="text-xl font-semibold text-white">
+                      {currentScanType ? `${currentScanType.charAt(0).toUpperCase() + currentScanType.slice(1)} Scan` : 'Scan'} in Progress
                     </div>
                   </div>
-                )}
+                  <div className="text-blue-200 mb-3 font-medium text-lg">
+                    Scanning {targetInput}...
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    Please wait for the current scan to complete before starting a new one
+                  </div>
+                  <div className="mt-6 flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2998,9 +2983,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className={`bg-gradient-to-br from-purple-900/30 to-indigo-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 shadow-xl transition-all duration-300 ${
-                isPortDiscoveryLoading ? 'opacity-70 pointer-events-none' : ''
-              }`}
+              className={`bg-gradient-to-br from-purple-900/30 to-indigo-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 shadow-xl transition-all duration-300 ${isPortDiscoveryLoading ? 'opacity-70 pointer-events-none' : ''
+                }`}
             >
               <div className="flex items-center space-x-3 mb-6">
                 <Server className="w-6 h-6 text-purple-400" />
@@ -3061,9 +3045,8 @@ const globalProgressManager = GlobalProgressManager.getInstance()
                       size="sm"
                       onClick={() => setSelectedPort(port.toString())}
                       disabled={isPortDiscoveryLoading}
-                      className={`border-purple-500/30 text-purple-400 hover:bg-purple-500/10 ${
-                        selectedPort === port.toString() ? 'bg-purple-500/20 border-purple-500' : ''
-                      }`}
+                      className={`border-purple-500/30 text-purple-400 hover:bg-purple-500/10 ${selectedPort === port.toString() ? 'bg-purple-500/20 border-purple-500' : ''
+                        }`}
                     >
                       {port} ({name})
                     </Button>
@@ -3089,11 +3072,10 @@ const globalProgressManager = GlobalProgressManager.getInstance()
               <Button
                 onClick={() => handlePortDiscovery()}
                 disabled={isPortDiscoveryLoading || !targetInput.trim() || !selectedPort.trim()}
-                className={`w-full py-4 text-lg font-semibold transition-all duration-300 ${
-                  isPortDiscoveryLoading
-                    ? 'bg-purple-500/30 text-purple-300 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-purple-500/25'
-                }`}
+                className={`w-full py-4 text-lg font-semibold transition-all duration-300 ${isPortDiscoveryLoading
+                  ? 'bg-purple-500/30 text-purple-300 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-purple-500/25'
+                  }`}
               >
                 {isPortDiscoveryLoading ? (
                   <>
@@ -3208,305 +3190,304 @@ const globalProgressManager = GlobalProgressManager.getInstance()
             </TabsTrigger>
           </TabsList>
 
-        <TabsContent value="web-scanning" className="space-y-6">
-          <WebScanning onScanStart={(url, config) => {
-            console.log('Web Scan Started:', { url, config })
-            setActiveScan({ type: 'web', url, config })
-          }} />
-        </TabsContent>
+          <TabsContent value="web-scanning" className="space-y-6">
+            <WebScanning onScanStart={(url, config) => {
+              console.log('Web Scan Started:', { url, config })
+              setActiveScan({ type: 'web', url, config })
+            }} />
+          </TabsContent>
 
-        <TabsContent value="exploits" className="space-y-6">
-          <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-green-500/20">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Bug className="w-5 h-5 text-green-400" />
-                  <span>CVE Exploitability Matrix - Discovered Vulnerabilities</span>
-                </div>
-                {foundCVEs.length > 0 && (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
-                    {foundCVEs.length} Total CVEs
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {loadingCVEs ? (
-                  <div className="flex items-center justify-center p-8">
-                    <div className="text-gray-400">Loading CVEs...</div>
+          <TabsContent value="exploits" className="space-y-6">
+            <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-green-500/20">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Bug className="w-5 h-5 text-green-400" />
+                    <span>CVE Exploitability Matrix - Discovered Vulnerabilities</span>
                   </div>
-              ) : foundCVEs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-12">
-                  <Bug className="w-16 h-16 text-gray-600 mb-4" />
-                  <div className="text-gray-400 text-lg font-medium">No CVEs found</div>
-                  <div className="text-gray-500 text-sm">Run a scan to discover vulnerabilities</div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" key={`cve-grid-${scanGeneration}`}>
-                  {foundCVEs.map((cve, index) => (
-                    <motion.div
-                      key={`${scanGeneration}-${cve.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="border-2 border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"
-                    >
-                      {/* Header Section */}
-                      <div className="bg-gradient-to-r from-gray-700/50 to-gray-800/50 border-b border-gray-600/30 p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <Badge className="bg-gray-500/30 text-white border-gray-500/50 text-lg px-4 py-2 font-bold">
-                              {cve.cve_id}
-                            </Badge>
-                            <Badge className={`${getSeverityColor(cve.severity)} text-sm px-3 py-1 font-semibold uppercase`}>
-                              {cve.severity === 'critical' ? 'Critical' :
-                               cve.severity === 'high' ? 'High' :
-                               cve.severity === 'medium' ? 'Med' : 'Low'}
-                            </Badge>
-                            {cve.cvss_score && (
-                              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-sm px-3 py-1 font-semibold">
-                                CVSS {cve.cvss_score}
-                              </Badge>
-                            )}
-                          </div>
-                          {cve.privilege_escalation && (
-                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-sm px-3 py-1 font-medium">
-                              🔐 Privilege Escalation
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {/* Content */}
-                      <div className="p-4 space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/40 rounded-lg p-3 text-center">
-                            <div className="text-blue-300 text-xs font-medium mb-1">PORT</div>
-                            <div className="text-white font-bold text-lg">{cve.port || 'Unknown'}</div>
-                          </div>
-                          <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/40 rounded-lg p-3 text-center">
-                            <div className="text-green-300 text-xs font-medium mb-1">SERVICE</div>
-                            <div className="text-white font-bold text-lg">{cve.service || 'Unknown'}</div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-center space-y-2 w-full">
-                          <div className="flex items-center justify-center space-x-2">
-                            {cve.exploitable && (
-                              <div className="flex items-center space-x-1 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                <span className="text-red-400 text-xs font-medium">Exploitable</span>
-                              </div>
-                            )}
-                            {cve.remediated && (
-                              <div className="flex items-center space-x-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-green-400 text-xs font-medium">Remediated</span>
-                              </div>
-                            )}
-                          </div>
-                          {/* See Attack Vector Dropdown */}
-                          <button
-                            onClick={() => setExpandedCVE(expandedCVE === cve.cve_id ? null : cve.cve_id)}
-                            className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 rounded-lg px-4 py-2 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 cursor-pointer w-full justify-center"
-                          >
-                            <Target className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm font-semibold">See Attack Vector</span>
-                            <ChevronDown
-                              className={`w-4 h-4 text-purple-400 transition-transform duration-300 ${
-                                expandedCVE === cve.cve_id ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </button>
-
-                          {/* Attack Vector Dropdown Content */}
-                          <AnimatePresence mode="wait">
-                            {expandedCVE === cve.cve_id && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{
-                                  duration: 0.2,
-                                  ease: "easeOut"
-                                }}
-                                className="w-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-600/30 rounded-lg p-4 space-y-3"
-                              >
-                                {cve.description && (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center space-x-2">
-                                      <Info className="w-4 h-4 text-blue-400" />
-                                      <h4 className="text-blue-300 text-xs font-semibold uppercase">Description</h4>
-                                    </div>
-                                    <p className="text-gray-300 text-sm leading-relaxed pl-6">
-                                      {cve.description}
-                                    </p>
-                                  </div>
-                                )}
-                                {cve.impact && (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center space-x-2">
-                                      <AlertTriangle className="w-4 h-4 text-orange-400" />
-                                      <h4 className="text-orange-300 text-xs font-semibold uppercase">Impact</h4>
-                                    </div>
-                                    <p className="text-gray-300 text-sm leading-relaxed pl-6">
-                                      {cve.impact}
-                                    </p>
-                                  </div>
-                                )}
-                                {!cve.description && !cve.impact && (
-                                  <p className="text-gray-400 text-sm text-center italic">
-                                    No attack vector details available for this CVE.
-                                  </p>
-                                )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </div>
-                      {/* Actions */}
-                      <div className="border-t border-gray-600/30 grid grid-cols-2">
-                        <Link href="/dashboard/blue-agent" className="block">
-                          <button className="w-full h-10 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-r border-gray-600/30 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-bl-xl flex items-center justify-center">
-                            <Shield className="w-3 h-3 mr-2" />
-                            REMEDIATE
-                          </button>
-                        </Link>
-                        <Link href="/dashboard/red-agent" className="block">
-                          <button className="w-full h-10 bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-br-xl flex items-center justify-center">
-                            <Target className="w-3 h-3 mr-2" />
-                            EXPLOIT
-                          </button>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-gray-700">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5 text-teal-400" />
-                  <span>Advanced Scan History</span>
+                  {foundCVEs.length > 0 && (
+                    <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                      {foundCVEs.length} Total CVEs
+                    </Badge>
+                  )}
                 </CardTitle>
-                <div className="flex items-center space-x-2">
-                  <Select defaultValue="all">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Scans</SelectItem>
-                      <SelectItem value="light">Light Scans</SelectItem>
-                      <SelectItem value="medium">Medium Scans</SelectItem>
-                      <SelectItem value="deep">Deep Scans</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    placeholder="Search scans..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-64"
-                  />
-                </div>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Target</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Progress</TableHead>
-                        <TableHead>Vulnerabilities</TableHead>
-                        <TableHead>Exploits</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {scanHistory.map((scan) => (
-                        <TableRow key={scan.id}>
-                          <TableCell className="font-medium">{scan.target}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{scan.type}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Badge
-                                className={
-                                  scan.status === "completed" ? "bg-green-500/20 text-green-400" :
-                                  scan.status === "running" ? "bg-yellow-500/20 text-yellow-400" :
-                                  "bg-red-500/20 text-red-400"
-                                }
+                <div className="space-y-4">
+                  {loadingCVEs ? (
+                    <div className="flex items-center justify-center p-8">
+                      <div className="text-gray-400">Loading CVEs...</div>
+                    </div>
+                  ) : foundCVEs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <Bug className="w-16 h-16 text-gray-600 mb-4" />
+                      <div className="text-gray-400 text-lg font-medium">No CVEs found</div>
+                      <div className="text-gray-500 text-sm">Run a scan to discover vulnerabilities</div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" key={`cve-grid-${scanGeneration}`}>
+                      {foundCVEs.map((cve, index) => (
+                        <motion.div
+                          key={`${scanGeneration}-${cve.id}-${index}`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border-2 border-gray-600/50 rounded-xl bg-gradient-to-br from-gray-800/90 to-gray-900/70 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-gray-500/70 overflow-hidden"
+                        >
+                          {/* Header Section */}
+                          <div className="bg-gradient-to-r from-gray-700/50 to-gray-800/50 border-b border-gray-600/30 p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                <Badge className="bg-gray-500/30 text-white border-gray-500/50 text-lg px-4 py-2 font-bold">
+                                  {cve.cve_id}
+                                </Badge>
+                                <Badge className={`${getSeverityColor(cve.severity)} text-sm px-3 py-1 font-semibold uppercase`}>
+                                  {cve.severity === 'critical' ? 'Critical' :
+                                    cve.severity === 'high' ? 'High' :
+                                      cve.severity === 'medium' ? 'Med' : 'Low'}
+                                </Badge>
+                                {cve.cvss_score && (
+                                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-sm px-3 py-1 font-semibold">
+                                    CVSS {cve.cvss_score}
+                                  </Badge>
+                                )}
+                              </div>
+                              {cve.privilege_escalation && (
+                                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-sm px-3 py-1 font-medium">
+                                  🔐 Privilege Escalation
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          {/* Content */}
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/40 rounded-lg p-3 text-center">
+                                <div className="text-blue-300 text-xs font-medium mb-1">PORT</div>
+                                <div className="text-white font-bold text-lg">{cve.port || 'Unknown'}</div>
+                              </div>
+                              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/40 rounded-lg p-3 text-center">
+                                <div className="text-green-300 text-xs font-medium mb-1">SERVICE</div>
+                                <div className="text-white font-bold text-lg">{cve.service || 'Unknown'}</div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-center space-y-2 w-full">
+                              <div className="flex items-center justify-center space-x-2">
+                                {cve.exploitable && (
+                                  <div className="flex items-center space-x-1 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                    <span className="text-red-400 text-xs font-medium">Exploitable</span>
+                                  </div>
+                                )}
+                                {cve.remediated && (
+                                  <div className="flex items-center space-x-1 bg-green-500/10 border border-green-500/30 rounded px-2 py-1">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="text-green-400 text-xs font-medium">Remediated</span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* See Attack Vector Dropdown */}
+                              <button
+                                onClick={() => setExpandedCVE(expandedCVE === cve.cve_id ? null : cve.cve_id)}
+                                className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 rounded-lg px-4 py-2 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 cursor-pointer w-full justify-center"
                               >
-                                {scan.status}
-                              </Badge>
+                                <Target className="w-4 h-4 text-purple-400" />
+                                <span className="text-purple-300 text-sm font-semibold">See Attack Vector</span>
+                                <ChevronDown
+                                  className={`w-4 h-4 text-purple-400 transition-transform duration-300 ${expandedCVE === cve.cve_id ? 'rotate-180' : ''
+                                    }`}
+                                />
+                              </button>
+
+                              {/* Attack Vector Dropdown Content */}
+                              <AnimatePresence mode="wait">
+                                {expandedCVE === cve.cve_id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{
+                                      duration: 0.2,
+                                      ease: "easeOut"
+                                    }}
+                                    className="w-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-600/30 rounded-lg p-4 space-y-3"
+                                  >
+                                    {cve.description && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                          <Info className="w-4 h-4 text-blue-400" />
+                                          <h4 className="text-blue-300 text-xs font-semibold uppercase">Description</h4>
+                                        </div>
+                                        <p className="text-gray-300 text-sm leading-relaxed pl-6">
+                                          {cve.description}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {cve.impact && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                          <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                          <h4 className="text-orange-300 text-xs font-semibold uppercase">Impact</h4>
+                                        </div>
+                                        <p className="text-gray-300 text-sm leading-relaxed pl-6">
+                                          {cve.impact}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {!cve.description && !cve.impact && (
+                                      <p className="text-gray-400 text-sm text-center italic">
+                                        No attack vector details available for this CVE.
+                                      </p>
+                                    )}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Progress value={scan.progress} className="w-16 h-2" />
-                              <span className="text-xs text-muted-foreground">{scan.progress}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {scan.status === "completed" && (
-                              <div className="flex space-x-1">
-                                {scan.vulnerabilities.critical > 0 && (
-                                  <Badge className="bg-red-500/20 text-red-400 text-xs">
-                                    {scan.vulnerabilities.critical}C
-                                  </Badge>
-                                )}
-                                {scan.vulnerabilities.high > 0 && (
-                                  <Badge className="bg-orange-500/20 text-orange-400 text-xs">
-                                    {scan.vulnerabilities.high}H
-                                  </Badge>
-                                )}
-                                {scan.vulnerabilities.medium > 0 && (
-                                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
-                                    {scan.vulnerabilities.medium}M
-                                  </Badge>
-                                )}
-                                {scan.vulnerabilities.low > 0 && (
-                                  <Badge className="bg-blue-500/20 text-blue-400 text-xs">
-                                    {scan.vulnerabilities.low}L
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {scan.exploitPaths > 0 && (
-                              <div className="flex items-center space-x-1">
-                                <Bug className="w-4 h-4 text-red-400" />
-                                <span className="text-sm text-red-400">{scan.exploitPaths}</span>
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Download className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                          {/* Actions */}
+                          <div className="border-t border-gray-600/30 grid grid-cols-2">
+                            <Link href="/dashboard/blue-agent" className="block">
+                              <button className="w-full h-10 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-r border-gray-600/30 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-bl-xl flex items-center justify-center">
+                                <Shield className="w-3 h-3 mr-2" />
+                                REMEDIATE
+                              </button>
+                            </Link>
+                            <Link href="/dashboard/red-agent" className="block">
+                              <button className="w-full h-10 bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all duration-300 text-sm font-semibold rounded-none rounded-br-xl flex items-center justify-center">
+                                <Target className="w-3 h-3 mr-2" />
+                                EXPLOIT
+                              </button>
+                            </Link>
+                          </div>
+                        </motion.div>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        </TabsContent>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-gray-700">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-teal-400" />
+                    <span>Advanced Scan History</span>
+                  </CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Scans</SelectItem>
+                        <SelectItem value="light">Light Scans</SelectItem>
+                        <SelectItem value="medium">Medium Scans</SelectItem>
+                        <SelectItem value="deep">Deep Scans</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Search scans..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-64"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Target</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Progress</TableHead>
+                          <TableHead>Vulnerabilities</TableHead>
+                          <TableHead>Exploits</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {scanHistory.map((scan) => (
+                          <TableRow key={scan.id}>
+                            <TableCell className="font-medium">{scan.target}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{scan.type}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Badge
+                                  className={
+                                    scan.status === "completed" ? "bg-green-500/20 text-green-400" :
+                                      scan.status === "running" ? "bg-yellow-500/20 text-yellow-400" :
+                                        "bg-red-500/20 text-red-400"
+                                  }
+                                >
+                                  {scan.status}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Progress value={scan.progress} className="w-16 h-2" />
+                                <span className="text-xs text-muted-foreground">{scan.progress}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {scan.status === "completed" && (
+                                <div className="flex space-x-1">
+                                  {scan.vulnerabilities.critical > 0 && (
+                                    <Badge className="bg-red-500/20 text-red-400 text-xs">
+                                      {scan.vulnerabilities.critical}C
+                                    </Badge>
+                                  )}
+                                  {scan.vulnerabilities.high > 0 && (
+                                    <Badge className="bg-orange-500/20 text-orange-400 text-xs">
+                                      {scan.vulnerabilities.high}H
+                                    </Badge>
+                                  )}
+                                  {scan.vulnerabilities.medium > 0 && (
+                                    <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                                      {scan.vulnerabilities.medium}M
+                                    </Badge>
+                                  )}
+                                  {scan.vulnerabilities.low > 0 && (
+                                    <Badge className="bg-blue-500/20 text-blue-400 text-xs">
+                                      {scan.vulnerabilities.low}L
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {scan.exploitPaths > 0 && (
+                                <div className="flex items-center space-x-1">
+                                  <Bug className="w-4 h-4 text-red-400" />
+                                  <span className="text-sm text-red-400">{scan.exploitPaths}</span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button variant="ghost" size="sm">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm">
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
         </Tabs>
       )}
     </div>

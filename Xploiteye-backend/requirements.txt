@@ -45,11 +45,13 @@ aiofiles==23.2.1
 packaging==24.0
 groq>=0.13.0
 langsmith>=0.1.57
-
+pymetasploit3
 # RAG-specific dependencies
 docling>=2.0.0
 pypdf==3.17.4
 sentence-transformers==3.3.1
+# Note: Torch should be installed with CPU-only index for VPS:
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
 transformers>=4.30.0
 slowapi==0.1.9

@@ -86,7 +86,7 @@ export interface PortDiscoveryResponse {
  */
 function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('auth_token')
+    return localStorage.getItem('access_token')
   }
   return null
 }
@@ -118,7 +118,7 @@ export async function startPortDiscovery(
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const response = await fetch(`${API_BASE_URL}/scanning/port-discovery`, {
+    const response = await fetch(`${API_BASE_URL}/api/scanning/port-discovery`, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),

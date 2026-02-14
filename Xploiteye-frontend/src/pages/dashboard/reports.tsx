@@ -60,11 +60,11 @@ export function ReportsPage() {
 
   const loadReportsData = async () => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
       console.log('Loading reports with token:', token ? 'Token present' : 'No token')
 
       // Load available PDF reports
-      const reportsResponse = await fetch('http://localhost:8000/scanning/reports', {
+      const reportsResponse = await fetch('http://localhost:8000/api/scanning/reports', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -91,11 +91,11 @@ export function ReportsPage() {
 
   const handleDownload = async (filename: string) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
       console.log('Downloading report:', filename)
       console.log('Using token:', token ? 'Token present' : 'No token')
 
-      const response = await fetch(`http://localhost:8000/scanning/download-report/${filename}`, {
+      const response = await fetch(`http://localhost:8000/api/scanning/download-report/${filename}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -130,8 +130,8 @@ export function ReportsPage() {
 
   const handleGenerateReport = async (scanId: string, target: string) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/scanning/generate-report', {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/scanning/generate-report', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

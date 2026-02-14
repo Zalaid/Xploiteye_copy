@@ -1190,21 +1190,21 @@ export function RedAgentDashboard() {
                       <div className="space-y-1">
                         {terminalLines.map((line, idx) => {
                           const isNewLine = idx >= terminalLines.length - 3  // Only animate last 3 lines
-                          const typeColor = {
+                          const typeColor = ({
                             "error": "text-red-400",
                             "success": "text-green-400",
                             "warning": "text-yellow-400",
                             "exploit": "text-lime-400 font-bold",
                             "info": "text-cyan-400"
-                          }[line.type] || "text-cyan-400"
+                          } as Record<string, string>)[line.type] || "text-cyan-400"
 
-                          const typeColorBold = {
+                          const typeColorBold = ({
                             "error": "text-red-500",
                             "success": "text-green-500",
                             "warning": "text-yellow-500",
                             "exploit": "text-lime-500 font-bold",
                             "info": "text-cyan-500"
-                          }[line.type] || "text-cyan-500"
+                          } as Record<string, string>)[line.type] || "text-cyan-500"
 
                           return isNewLine ? (
                             <motion.div
