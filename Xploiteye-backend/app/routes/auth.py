@@ -2,6 +2,7 @@
 Authentication routes for user registration, login, and protected endpoints
 """
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from app.models.user import (
     UserCreate, UserLogin, UserResponse, Token, 
@@ -11,12 +12,16 @@ from pydantic import BaseModel
 
 class SessionTokenRequest(BaseModel):
     session_token: str
+
+class GoogleCodeExchangeRequest(BaseModel):
+    code: str
+    state: Optional[str] = None
+
 from app.services.user_service import UserService
 from app.services.user_image_service import UserImageService
 from app.auth.dependencies import get_current_user, get_current_active_user, get_user_service
 from app.auth.security import SecurityUtils
 from app.auth.google_oauth import GoogleOAuthService
-from typing import Optional
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -308,38 +313,55 @@ async def logout_user(
         )
 
 # Google OAuth Routes
-@router.get(
-    "/google/login",
-    summary="Initiate Google OAuth login",
-    description="Redirect user to Google OAuth authorization page"
-)
-async def google_login(redirect: Optional[str] = None):
-    """Initiate Google OAuth login"""
-    try:
-        print(f"[OAuth] Google login initiated with redirect: {redirect}")
-        oauth_service = GoogleOAuthService()
 
-        # Store redirect URL in OAuth state parameter if provided
+@router.get(
+    "/google/login-url",
+    summary="Get Google OAuth URL (for frontend to redirect without leaving origin)",
+    description="Returns the Google authorization URL so frontend can redirect without navigating to backend",
+)
+async def google_login_url(redirect: Optional[str] = None):
+    """Return Google auth URL as JSON so the frontend can redirect without showing backend in address bar."""
+    try:
+        oauth_service = GoogleOAuthService()
         if redirect:
             import secrets
             state_token = secrets.token_urlsafe(16)
             from app.auth.session_store import store_temp_token
             store_temp_token(f"oauth_redirect_{state_token}", redirect)
-            print(f"[OAuth] Stored redirect URL with state token: {state_token}")
             authorization_url = oauth_service.get_authorization_url(state=state_token)
         else:
-            print("[OAuth] No redirect URL provided")
             authorization_url = oauth_service.get_authorization_url()
-
-        print(f"[OAuth] Authorization URL: {authorization_url}")
-        # Redirect to Google OAuth
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=authorization_url)
-
+        return {"url": authorization_url}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initiate Google login: {str(e)}"
+            detail=f"Failed to get Google login URL: {str(e)}",
+        )
+
+
+@router.get(
+    "/google/login",
+    summary="Initiate Google OAuth login (redirect)",
+    description="Redirect user to Google OAuth authorization page",
+)
+async def google_login(redirect: Optional[str] = None):
+    """Initiate Google OAuth login (legacy redirect endpoint)."""
+    try:
+        oauth_service = GoogleOAuthService()
+        if redirect:
+            import secrets
+            state_token = secrets.token_urlsafe(16)
+            from app.auth.session_store import store_temp_token
+            store_temp_token(f"oauth_redirect_{state_token}", redirect)
+            authorization_url = oauth_service.get_authorization_url(state=state_token)
+        else:
+            authorization_url = oauth_service.get_authorization_url()
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=authorization_url)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initiate Google login: {str(e)}",
         )
 
 @router.get(
@@ -413,7 +435,8 @@ async def google_callback(
             
             # Redirect to frontend with MFA requirement
             from fastapi.responses import RedirectResponse
-            mfa_url = f"http://localhost:3000/signin?mfa_required=true&temp_token={temp_token}&email={user.email}"
+            base_url = settings.frontend_url.rstrip("/")
+            mfa_url = f"{base_url}/signin?mfa_required=true&temp_token={temp_token}&email={user.email}"
             return RedirectResponse(url=mfa_url)
         
         # No MFA required - proceed with normal login
@@ -436,13 +459,14 @@ async def google_callback(
         from fastapi.responses import RedirectResponse
         from urllib.parse import quote
         # Use redirect URL if provided, otherwise go to dashboard
+        base_url = settings.frontend_url.rstrip("/")
         if redirect_url:
             # URL encode the redirect URL to preserve query parameters
             encoded_redirect = quote(redirect_url, safe='')
-            callback_url = f"http://localhost:3000/auth/callback?session={session_token}&redirect={encoded_redirect}"
+            callback_url = f"{base_url}/auth/callback?session={session_token}&redirect={encoded_redirect}"
             print(f"[OAuth] Redirecting to: {callback_url}")
         else:
-            callback_url = f"http://localhost:3000/auth/callback?session={session_token}"
+            callback_url = f"{base_url}/auth/callback?session={session_token}"
             print(f"[OAuth] Redirecting to dashboard: {callback_url}")
         return RedirectResponse(url=callback_url)
         
@@ -452,9 +476,74 @@ async def google_callback(
         print(f"[OAuth Error] Full traceback: {traceback.format_exc()}")
         
         from fastapi.responses import RedirectResponse
+        base_url = settings.frontend_url.rstrip("/")
         return RedirectResponse(
-            url="http://localhost:3000/signin?error=google_login_failed"
+            url=f"{base_url}/signin?error=google_login_failed"
         )
+
+
+@router.post(
+    "/google/exchange-code",
+    summary="Exchange Google auth code (when redirect_uri is frontend)",
+    description="Frontend receives code from Google and sends it here; returns session_token for /auth/callback",
+)
+async def google_exchange_code(
+    body: GoogleCodeExchangeRequest,
+    user_service: UserService = Depends(get_user_service),
+):
+    """Exchange authorization code for user session when Google redirects to frontend."""
+    try:
+        code, state = body.code, body.state
+        redirect_url = None
+        if state:
+            from app.auth.session_store import get_temp_token
+            redirect_url = get_temp_token(f"oauth_redirect_{state}")
+
+        oauth_service = GoogleOAuthService()
+        tokens = await oauth_service.exchange_code_for_tokens(code)
+        user_info = await oauth_service.get_user_info(tokens["access_token"])
+
+        existing_user = await user_service.get_user_by_email(user_info["email"])
+        if existing_user:
+            if not existing_user.google_id:
+                await user_service.update_user_profile(
+                    str(existing_user.id),
+                    {"google_id": user_info["google_id"], "oauth_provider": "google", "is_oauth_user": True},
+                )
+            user = existing_user
+        else:
+            from app.models.user import UserCreate
+            new_user_data = UserCreate(
+                email=user_info["email"],
+                username=user_info["email"].split("@")[0],
+                name=user_info["name"],
+                display_name=user_info["name"],
+                password="GoogleOAuthUser123!",
+            )
+            user = await user_service.create_google_user(new_user_data, user_info["google_id"])
+
+        if user.mfa_enabled and user.mfa_setup_complete:
+            temp_token = SecurityUtils.create_temp_token(data={"sub": str(user.id), "type": "mfa_temp"})
+            base_url = settings.frontend_url.rstrip("/")
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=f"{base_url}/signin?mfa_required=true&temp_token={temp_token}&email={user.email}")
+
+        access_token = SecurityUtils.create_access_token(data={"sub": str(user.id)})
+        jti = SecurityUtils.extract_jti_from_token(access_token)
+        await user_service.update_active_jwt_identifier(str(user.id), jti)
+
+        import secrets
+        session_token = secrets.token_urlsafe(32)
+        from app.auth.session_store import store_temp_token
+        store_temp_token(session_token, access_token)
+
+        return {"session_token": session_token, "redirect_url": redirect_url}
+    except Exception as e:
+        print(f"[OAuth] exchange-code failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail="Google sign-in failed. Try again or use email login.")
+
 
 @router.post(
     "/exchange-session-token",

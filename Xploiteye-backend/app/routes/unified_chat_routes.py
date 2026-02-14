@@ -9,7 +9,6 @@ import logging
 
 from app.services.unified_router_service import UnifiedChatRouter
 from app.services.chatbot_service import SecurityPDFChatbot
-from app.services.rag_service import RAGRetriever
 from app.services.voice_service import VoiceService
 from app.services.translation_service import TranslationService
 from app.services.chat_session_service import ChatSessionService
@@ -24,7 +23,6 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Services
 unified_router = UnifiedChatRouter(OPENAI_API_KEY)
-rag_retriever = RAGRetriever()
 voice_service = VoiceService(OPENAI_API_KEY)
 translation_service = TranslationService(OPENAI_API_KEY)
 
@@ -51,7 +49,7 @@ class TranslateRequest(BaseModel):
 
 @router.post("/unified-query/")
 async def unified_query(request: UnifiedQueryRequest, db=Depends(get_database)):
-    """Smart query routing between Chatbot and RAG"""
+    """Smart query routing between Chatbot and General Queries (formerly RAG)"""
     try:
         session_id = request.session_id
         session_service = ChatSessionService(db)
@@ -102,13 +100,11 @@ async def unified_query(request: UnifiedQueryRequest, db=Depends(get_database)):
                 "answer": result["answer"]
             }
         else:
-            # RAG route
-            rag_result = rag_retriever.query(request.query, top_k=request.top_k)
-
+            # Fallback for when RAG is disabled/removed
             return {
                 "success": True,
-                "route": "rag",
-                "data": rag_result
+                "route": "general",
+                "message": "RAG integration is currently being updated. Please check back later."
             }
 
     except Exception as e:

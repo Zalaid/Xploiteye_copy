@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     # Google OAuth Configuration
     google_client_id: str = Field(default="")
     google_client_secret: str = Field(default="")
-    google_redirect_uri: str = Field(default="http://localhost:8000/auth/google/callback")
-    
+    # Use frontend URL so you only add http://localhost:3000/auth/google-callback in Google Console
+    google_redirect_uri: str = Field(default="http://localhost:3000/auth/google-callback")
+
     # Frontend Configuration
     frontend_url: str = Field(default="http://localhost:3000")
     
@@ -38,7 +39,9 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3009",
-        "https://accounts.google.com"
+        "https://accounts.google.com",
+        "http://192.168.10.12:3000",
+        "http://192.168.10.12:8000"
     ])
 
     # Network Scanning Configuration
@@ -52,6 +55,8 @@ class Settings(BaseSettings):
     # Qdrant Vector Database Configuration
     qdrant_url: str = Field(default="http://localhost:6333")
     qdrant_api_key: str = Field(default="")
+    qdrant_timeout: int = Field(default=60)
+    qdrant_global_collection: str = Field(default="global_knowledge_base")
 
     # Scanning Directories
     results_dir: str = Field(default="/home/kali/Desktop/Github Zalaid/xploiteye/Xploiteye-backend/scanning_results")
@@ -133,6 +138,45 @@ class Settings(BaseSettings):
 
     enable_notifications: bool = Field(default=False)
     notification_methods: str = Field(default="")
+
+    # RAG System Configuration
+    groq_api_key: str = Field(default="")
+    groq_model: str = Field(default="llama-3.3-70b-versatile")
+    embedding_model: str = Field(default="BAAI/bge-large-en-v1.5")
+    embedding_dimension: int = Field(default=1024)
+    
+    # Upload Configuration
+    max_upload_size_mb: int = Field(default=50)
+    allowed_file_types: str = Field(default=".pdf")
+    upload_rate_limit_per_hour: int = Field(default=10)
+    
+    # Chunking Configuration
+    chunk_size: int = Field(default=512)
+    chunk_overlap: int = Field(default=100)
+    
+    # Retrieval Configuration
+    user_report_retrieval_limit: int = Field(default=7)
+    global_kb_retrieval_limit: int = Field(default=3)
+    user_memory_retrieval_limit: int = Field(default=5)
+    enable_reranking: bool = Field(default=False)
+    
+    # Guardrails
+    enable_guardrails: bool = Field(default=True)
+    guardrails_classification_model: str = Field(default="llama-guard-3-8b")
+    enable_llm_classification: bool = Field(default=True)
+    max_query_length: int = Field(default=1000)
+    max_response_length: int = Field(default=4000)
+    allow_off_topic: bool = Field(default=False)
+    
+    # Session Configuration
+    session_expire_days: int = Field(default=30)
+    
+    # Logging for RAG
+    log_file: str = Field(default="logs/xploiteye_rag.log")
+    
+    # Allowed Origins
+    allowed_origins: str = Field(default="http://localhost:3000")
+
 
     class Config:
         env_file = ".env"

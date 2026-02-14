@@ -9,7 +9,7 @@ from app.auth.dependencies import get_current_user, get_current_active_user
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get(
-    "/",
+    "",
     summary="Dashboard home",
     description="Protected dashboard endpoint - requires valid authentication"
 )

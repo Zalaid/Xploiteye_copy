@@ -10,7 +10,7 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
 python-dotenv==1.0.1
 email-validator>=2.1.1
-requests==2.31.0
+requests>=2.32.2
 google-auth==2.23.4
 google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
@@ -45,3 +45,14 @@ aiofiles==23.2.1
 packaging==24.0
 groq>=0.13.0
 langsmith>=0.1.57
+
+# RAG-specific dependencies
+docling>=2.0.0
+pypdf==3.17.4
+sentence-transformers==3.3.1
+torch>=2.0.0
+transformers>=4.30.0
+slowapi==0.1.9
+loguru==0.7.2
+apscheduler==3.10.4
+tqdm>=4.66.0

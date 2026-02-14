@@ -3,248 +3,188 @@
  * Handles all communication with backend chat endpoints
  */
 
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-export interface ChatMessage {
-  id: string;
-  type: 'user' | 'bot';
-  content: string;
-  timestamp: Date;
-  route?: 'pdf' | 'rag' | 'unified';
-  category?: 'cve' | 'remediation' | 'general' | 'exploit';
-}
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-export interface ChatSession {
-  session_id: string;
-  user_id: string;
-  filename: string;
-  created_at: string;
-  updated_at: string;
-  conversation_history: any[];
-}
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-export interface UploadPDFResponse {
-  success: boolean;
-  session_id: string;
-  filename: string;
-  pdf_length: number;
-  message: string;
-}
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-export interface QueryResponse {
-  success: boolean;
-  question?: string;
-  answer?: string;
-  data?: any;
-  route?: string;
-}
+// Response interceptor for token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-export interface RAGQueryResponse {
-  success: boolean;
-  data: {
-    answer: string;
-    sources: any[];
-    context_used: boolean;
-    query_analysis: any;
-  };
-}
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-export interface HistoryResponse {
-  success: boolean;
-  session_id: string;
-  filename: string;
-  history: any[];
-}
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+          const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
+            refresh_token: refreshToken,
+          });
 
-export interface TranslateResponse {
-  success: boolean;
-  original: string;
-  translated: string;
-  target_language: string;
-}
+          const { access_token } = response.data;
+          localStorage.setItem('access_token', access_token);
 
-class ChatbotAPI {
-  private api: AxiosInstance;
-  private token: string | null = null;
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed, logging out');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
 
-  constructor() {
-    this.api = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // Add token to requests if available
-    this.api.interceptors.request.use((config) => {
-      if (this.token) {
-        config.headers.Authorization = `Bearer ${this.token}`;
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+          window.location.href = '/auth/login';
+        }
+        return Promise.reject(refreshError);
       }
-      return config;
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// API functions
+export const authAPI = {
+  getCurrentUser: async () => {
+    const response = await api.get('/api/auth/me', {
+      headers: getAuthHeaders()
     });
-  }
+    return response.data;
+  },
+};
 
-  setToken(token: string) {
-    this.token = token;
-  }
-
-  // ============ CHATBOT ENDPOINTS (PDF Analysis) ============
-
-  /**
-   * Upload PDF report for analysis
-   */
-  async uploadPDF(file: File): Promise<UploadPDFResponse> {
+export const uploadAPI = {
+  uploadScanReport: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await this.api.post<UploadPDFResponse>(
-      '/chatbot/upload-pdf/',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    return response.data;
-  }
-
-  /**
-   * Ask question about uploaded PDF
-   */
-  async queryPDF(sessionId: string, question: string): Promise<QueryResponse> {
-    const response = await this.api.post<QueryResponse>('/chatbot/query/', {
-      session_id: sessionId,
-      question,
+    const response = await api.post('/api/rag/upload/scan-report', formData, {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data;
-  }
+  },
+};
 
-  /**
-   * Get conversation history for a session
-   */
-  async getHistory(sessionId: string): Promise<HistoryResponse> {
-    const response = await this.api.get<HistoryResponse>('/chatbot/history/', {
-      params: { session_id: sessionId },
+export const queryAPI = {
+  query: async (data: { query: string; session_id?: string; conversation_id?: string }) => {
+    const response = await api.post('/api/rag/query/', data, {
+      headers: getAuthHeaders()
     });
     return response.data;
-  }
+  },
 
-  /**
-   * Clear/delete a chat session
-   */
-  async clearSession(sessionId: string): Promise<{ success: boolean; message: string }> {
-    const response = await this.api.post('/chatbot/clear-session/', {
-      session_id: sessionId,
+  streamQuery: async (data: { query: string; session_id?: string }) => {
+    const response = await api.post('/api/rag/query/stream', data, {
+      headers: getAuthHeaders(),
+      responseType: 'stream',
     });
     return response.data;
-  }
+  },
+};
 
-  /**
-   * Get all sessions for current user
-   */
-  async getUserSessions(): Promise<{ success: boolean; sessions: ChatSession[]; total: number }> {
-    const response = await this.api.get('/chatbot/user-sessions/');
-    return response.data;
-  }
-
-  // ============ RAG ENDPOINTS (Documentation Search) ============
-
-  /**
-   * Query XploitEye documentation
-   */
-  async queryRAG(query: string, topK: number = 5): Promise<RAGQueryResponse> {
-    const response = await this.api.post<RAGQueryResponse>('/rag/query/', {
-      query,
-      top_k: topK,
+export const chatAPI = {
+  getHistory: async (limit: number = 50, skip: number = 0) => {
+    const response = await api.get('/api/rag/chat/history', {
+      params: { limit, skip },
+      headers: getAuthHeaders()
     });
     return response.data;
-  }
+  },
 
-  /**
-   * Check RAG service health
-   */
-  async checkRAGHealth(): Promise<{
-    success: boolean;
-    status: string;
-    service: string;
-    collection: string;
-    vectors_count: number;
-  }> {
-    const response = await this.api.get('/rag/health/');
-    return response.data;
-  }
-
-  // ============ UNIFIED CHAT ENDPOINTS ============
-
-  /**
-   * Send unified query (auto-routes to PDF or RAG)
-   */
-  async unifiedQuery(
-    query: string,
-    sessionId?: string,
-    forcedRoute?: 'pdf' | 'rag'
-  ): Promise<QueryResponse> {
-    const response = await this.api.post<QueryResponse>('/chat/unified-query/', {
-      query,
-      session_id: sessionId,
-      forced_route: forcedRoute,
+  getSessionHistory: async (sessionId: string, limit: number = 50) => {
+    const response = await api.get(`/api/rag/chat/history/${sessionId}`, {
+      params: { limit },
+      headers: getAuthHeaders()
     });
     return response.data;
-  }
+  },
 
-  /**
-   * Send voice query (audio to text, then route)
-   */
-  async voiceQuery(
-    audioFile: File,
-    sessionId?: string,
-    forcedRoute?: 'pdf' | 'rag'
-  ): Promise<QueryResponse> {
-    const formData = new FormData();
-    formData.append('audio', audioFile);
-    if (sessionId) formData.append('session_id', sessionId);
-    if (forcedRoute) formData.append('forced_route', forcedRoute);
-
-    const response = await this.api.post<QueryResponse>(
-      '/chat/voice-query/',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    return response.data;
-  }
-
-  /**
-   * Translate text to target language
-   */
-  async translate(text: string, targetLanguage: string = 'ur'): Promise<TranslateResponse> {
-    const response = await this.api.post<TranslateResponse>('/chat/translate/', {
-      text,
-      target_language: targetLanguage,
+  getConversations: async (limit: number = 50) => {
+    const response = await api.get('/api/rag/chat/conversations', {
+      params: { limit },
+      headers: getAuthHeaders()
     });
     return response.data;
-  }
+  },
 
-  /**
-   * Analyze query intent (shows suggested route)
-   */
-  async analyzeQuery(query: string): Promise<{
-    success: boolean;
-    analysis: any;
-    suggested_route: 'pdf' | 'rag';
-  }> {
-    const response = await this.api.get('/chat/analyze-query/', {
-      params: { query },
+  getConversationChats: async (conversationId: string, limit: number = 100) => {
+    const response = await api.get(`/api/rag/chat/conversations/${conversationId}`, {
+      params: { limit },
+      headers: getAuthHeaders()
     });
     return response.data;
-  }
-}
+  },
 
-// Export singleton instance
-export const chatbotAPI = new ChatbotAPI();
+  deleteConversation: async (conversationId: string) => {
+    const response = await api.delete(`/api/rag/chat/conversations/${conversationId}`, {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+
+  deleteChat: async (chatId: string) => {
+    const response = await api.delete(`/api/rag/chat/history/${chatId}`, {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+};
+
+export const sessionAPI = {
+  getSessions: async () => {
+    const response = await api.get('/api/rag/sessions/', {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+
+  deleteSession: async (sessionId: string) => {
+    const response = await api.delete(`/api/rag/sessions/${sessionId}`, {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+
+  extendSession: async (sessionId: string, days: number = 7) => {
+    const response = await api.post(`/api/rag/sessions/${sessionId}/extend`, { days }, {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+};
+
+export default api;

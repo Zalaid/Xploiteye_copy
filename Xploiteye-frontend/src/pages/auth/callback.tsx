@@ -34,8 +34,8 @@ const AuthCallback = () => {
         // Add a small delay for better UX
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Exchange session token for JWT
-        const response = await fetch('http://localhost:8000/auth/exchange-session-token', {
+        // Exchange session token for JWT (use /api path so Next.js rewrites to backend)
+        const response = await fetch('/api/auth/exchange-session-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -57,8 +57,8 @@ const AuthCallback = () => {
 
         const tokenData = await response.json();
 
-        // Store the JWT token
-        localStorage.setItem('token', tokenData.access_token);
+        // Store the JWT token (use access_token key so AuthContext recognizes it)
+        localStorage.setItem('access_token', tokenData.access_token);
 
         // Update auth context with new token
         await checkAuthStatus();

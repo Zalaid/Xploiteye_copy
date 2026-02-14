@@ -547,9 +547,9 @@ const Login: FC = () => {
             setMfaRequired(true);
             setShowMfaModal(true);
           } else {
-            // Check for redirect URL
-            const redirectUrl = router.query.redirect as string;
-            router.push(redirectUrl || '/dashboard');
+            // Stay on frontend: client-side nav so we don't hit backend /dashboard (which 404s)
+            const redirectUrl = (router.query.redirect as string) || '/dashboard';
+            router.push(redirectUrl);
           }
         } else {
           setErrors({ general: result.error || 'Login failed. Please try again.' });
@@ -580,17 +580,24 @@ const Login: FC = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Get redirect URL from query params
+  const handleGoogleLogin = async () => {
+    // Fetch Google URL via API (stays on 3000), then redirect to Google — never open 8000 in browser
     const redirectUrl = router.query.redirect as string;
-
-    // Pass redirect URL to backend OAuth endpoint via state parameter
-    const backendUrl = 'http://localhost:8000/auth/google/login';
-    if (redirectUrl) {
-      // Encode redirect URL and pass it as state
-      window.location.href = `${backendUrl}?redirect=${encodeURIComponent(redirectUrl)}`;
-    } else {
-      window.location.href = backendUrl;
+    const params = new URLSearchParams();
+    if (redirectUrl) params.set('redirect', redirectUrl);
+    const query = params.toString();
+    const apiUrl = query ? `/api/auth/google/login-url?${query}` : '/api/auth/google/login-url';
+    try {
+      const res = await fetch(apiUrl);
+      if (!res.ok) throw new Error('Failed to get Google login URL');
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        setErrors({ general: 'Google login unavailable. Try again.' });
+      }
+    } catch (e) {
+      setErrors({ general: 'Could not start Google sign-in. Check backend is running.' });
     }
   };
 

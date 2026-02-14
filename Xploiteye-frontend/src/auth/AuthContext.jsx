@@ -2,8 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-// Backend API configuration
-const API_BASE_URL = 'http://localhost:8000';
+// Backend API configuration: use env so rewrites (empty) or direct backend URL both work
+const getApiBaseUrl = () => {
+  const url = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) || '';
+  return url.replace(/\/+$/, ''); // no trailing slash to avoid double slashes
+};
+const API_BASE_URL = getApiBaseUrl();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -26,20 +30,18 @@ export const AuthProvider = ({ children }) => {
   const checkAuthStatus = async () => {
     try {
       // Check for token (also check access_token for migration from old key)
-      const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('access_token');
       if (!token) {
         setLoading(false);
         return;
       }
 
-      // Migrate old access_token to token if needed
-      if (!localStorage.getItem('token') && localStorage.getItem('access_token')) {
-        localStorage.setItem('token', token);
-        localStorage.removeItem('access_token');
-      }
+      // No migration needed, using access_token consistently
 
-      // Verify token with backend
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      // Verify token with backend (use same base as login)
+      const base = getApiBaseUrl();
+      const meUrl = base ? `${base}/api/auth/me` : '/api/auth/me';
+      const response = await fetch(meUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -52,7 +54,6 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
       } else {
         // Token is invalid, remove it
-        localStorage.removeItem('token');
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
         setIsAuthenticated(false);
@@ -60,7 +61,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       setIsAuthenticated(false);
@@ -71,8 +71,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkUsernameAvailability = async (username) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/check-username/${encodeURIComponent(username)}`);
-      
+      const response = await fetch(`${API_BASE_URL}/api/auth/check-username/${encodeURIComponent(username)}`);
+
       if (response.ok) {
         const data = await response.json();
         return { success: true, available: data.available };
@@ -93,8 +93,8 @@ export const AuthProvider = ({ children }) => {
     try {
       // Ensure name is not empty - use username as fallback
       const validName = (name && name.trim()) ? name.trim() : username;
-      
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +152,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const base = getApiBaseUrl();
+      const loginUrl = base ? `${base}/api/auth/login` : '/api/auth/login';
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +165,12 @@ export const AuthProvider = ({ children }) => {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = {};
+      }
 
       if (response.ok) {
         // Check if MFA is required
@@ -177,33 +184,37 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Normal login - store JWT token
-        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('access_token', data.access_token);
 
-        // Get user info
+        // Get user info (if this 404s, token stays but dashboard may redirect; avoid breaking login success)
         await checkAuthStatus();
 
         return { success: true };
       } else {
-        return { 
-          success: false, 
-          error: data.detail || 'Login failed' 
+        const msg = data.detail || 'Login failed';
+        const friendlyError = response.status === 404
+          ? 'Login service unavailable. Ensure the backend is running and NEXT_PUBLIC_API_URL is set if needed.'
+          : msg;
+        return {
+          success: false,
+          error: friendlyError
         };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: 'Network error. Please check your connection.' 
+      return {
+        success: false,
+        error: 'Network error. Please check your connection.'
       };
     }
   };
 
   const logout = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       if (token) {
         // Call backend logout endpoint
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -215,8 +226,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       // Clear local state regardless of backend response
-      localStorage.removeItem('token');
-      localStorage.removeItem('access_token'); // Remove old key if it exists
+      localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
@@ -242,7 +252,10 @@ export const AuthProvider = ({ children }) => {
 
   // API helper function for authenticated requests
   const apiCall = async (endpoint, options = {}) => {
-    const token = localStorage.getItem('token');
+    // Ensure endpoint starts with /api
+    const apiEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+    const token = localStorage.getItem('access_token');
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
@@ -260,14 +273,13 @@ export const AuthProvider = ({ children }) => {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, finalOptions);
+      const response = await fetch(`${API_BASE_URL}${apiEndpoint}`, finalOptions);
 
       // Handle session expired
       if (response.status === 401) {
         const data = await response.json();
         if (data.detail?.includes('Session expired')) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('access_token'); // Remove old key if it exists
+          localStorage.removeItem('access_token');
           localStorage.removeItem('user');
           setIsAuthenticated(false);
           setUser(null);

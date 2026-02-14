@@ -1,705 +1,453 @@
 "use client"
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { useState, useRef, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Send, Bot, User, Shield, Search, BookOpen, AlertTriangle, Copy, ThumbsUp, ThumbsDown, Upload, Mic, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { chatbotAPI, ChatSession } from '@/lib/api/chatbot'
-import { useAuth } from '@/auth/AuthContext'
+import { useSessionStore, useChatStore } from '@/lib/store';
+import { queryAPI, chatAPI, sessionAPI } from '@/lib/api/chatbot';
+import { cn } from '@/lib/utils';
+import { Send, Bot, User, AlertCircle, FileText, Trash2, ChevronDown, Check, Shield } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import toast, { Toaster } from 'react-hot-toast';
+import { format } from 'date-fns';
 
-interface Message {
-  id: string
-  type: "user" | "bot"
-  content: string
-  timestamp: Date
-  category?: "cve" | "remediation" | "general" | "exploit"
-  route?: "pdf" | "rag" | "unified"
+function formatDate(date: string | Date): string {
+  return format(new Date(date), 'MMM d, yyyy');
 }
 
-const quickActions = [
-  { icon: Search, label: "CVE Analysis", prompt: "Analyze CVE vulnerabilities in the scan report" },
-  { icon: Shield, label: "Remediation", prompt: "What are the remediation steps for critical findings?" },
-  { icon: AlertTriangle, label: "Risk Assessment", prompt: "What are the privilege escalation risks?" },
-  { icon: BookOpen, label: "Security Guide", prompt: "How does the red agent network work?" },
-]
+// Helper function to extract error message from various error formats
+function getErrorMessage(error: any): string {
+  const detail = error.response?.data?.detail
+  if (!detail) return error.message || 'Query failed'
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((err: any) => err.msg || JSON.stringify(err)).join(', ')
+  if (typeof detail === 'object') return detail.msg || detail.message || JSON.stringify(detail)
+  return 'Query failed'
+}
 
-export function RAGChatbotEnhancedPage() {
-  // Get auth context
-  const { user } = useAuth()
-
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const [showQuickActions, setShowQuickActions] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
+function ChatInterface() {
+  const { currentSession, sessions, setCurrentSession, setSessions } = useSessionStore()
+  const {
+    messages,
+    currentConversationId,
+    addMessage,
+    setMessages,
+    setCurrentConversationId,
+    setConversations,
+    clearMessages,
+  } = useChatStore()
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showReportDropdown, setShowReportDropdown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Session management
-  const [currentSession, setCurrentSession] = useState<string | null>(null)
-  const [currentFilename, setCurrentFilename] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<ChatSession[]>([])
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
-
-  // Route mode
-  const [routeMode, setRouteMode] = useState<'pdf' | 'rag' | 'unified'>('unified')
-
-  // Translation
-  const [translationLanguage, setTranslationLanguage] = useState('ur')
-  const [isTranslating, setIsTranslating] = useState(false)
-
-  // Voice
-  const [isRecording, setIsRecording] = useState(false)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  // Set JWT token on mount and when auth changes
+  // Initial load of sessions and history
   useEffect(() => {
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    if (token) {
-      chatbotAPI.setToken(token)
-    }
-  }, [user])
-
-  // Load user sessions on mount
-  useEffect(() => {
-    loadSessions()
-  }, [user])
+    loadSessions();
+  }, []);
 
   const loadSessions = async () => {
     try {
-      setIsLoadingSessions(true)
-      const result = await chatbotAPI.getUserSessions()
-      if (result.success && result.sessions) {
-        setSessions(result.sessions)
-      }
-    } catch (error: any) {
-      // Silently fail if no auth (422, 401, etc) - user sessions are optional
-      if (error.response?.status === 422 || error.response?.status === 401) {
-        console.log('User sessions require authentication - skipping')
-        setSessions([])
-      } else {
-        console.error('Failed to load sessions:', error)
-      }
-    } finally {
-      setIsLoadingSessions(false)
-    }
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    try {
-      setIsLoading(true)
-      const response = await chatbotAPI.uploadPDF(file)
-
-      if (response.success) {
-        setCurrentSession(response.session_id)
-        setCurrentFilename(response.filename)
-        setMessages([])
-        setShowQuickActions(true)
-        setRouteMode('pdf')
-
-        // Add success message
-        const successMsg: Message = {
-          id: Date.now().toString(),
-          type: 'bot',
-          content: `✅ PDF loaded successfully: ${response.filename}\n\nI can now analyze this XploitEye scan report. Ask me about vulnerabilities, CVEs, remediation steps, or any findings in the report.`,
-          timestamp: new Date(),
-          route: 'pdf',
-        }
-        setMessages([successMsg])
-
-        // Reload sessions
-        loadSessions()
+      const result = await sessionAPI.getSessions();
+      if (result.sessions) {
+        setSessions(result.sessions);
       }
     } catch (error) {
-      console.error('Upload error:', error)
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        type: 'bot',
-        content: '❌ Failed to upload PDF. Please try again.',
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, errorMsg])
-    } finally {
-      setIsLoading(false)
+      console.error('Failed to load sessions:', error);
     }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowReportDropdown(false)
+      }
+    }
+
+    if (showReportDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showReportDropdown])
+
+  const handleSelectReport = (session: any) => {
+    setCurrentSession(session)
+    setCurrentConversationId(null)
+    clearMessages()
+    setShowReportDropdown(false)
+    toast.success(`Selected report: ${session.scan_report_name}`)
+
+    // Optionally load history for this session if needed
+    // loadSessionHistory(session.session_id);
   }
 
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return
+  const handleDeselectReport = () => {
+    setCurrentSession(null)
+    setCurrentConversationId(null)
+    clearMessages()
+    setShowReportDropdown(false)
+    toast.success('Switched to Global Knowledge Base')
+  }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: content.trim(),
-      timestamp: new Date(),
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!query.trim()) return
+
+    const userQuery = query.trim()
+    setQuery('')
+    setLoading(true)
+
+    // Add user message immediately
+    const userMessage = {
+      id: `temp-${Date.now()}`,
+      user_id: '',
+      session_id: currentSession?.session_id || null,
+      timestamp: new Date().toISOString(),
+      query: userQuery,
+      response: '',
+      sources: [],
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsTyping(true)
-    setShowQuickActions(false)
+    addMessage(userMessage)
 
     try {
-      let response: any
+      const response = await queryAPI.query({
+        query: userQuery,
+        session_id: currentSession?.session_id,
+        conversation_id: currentConversationId || undefined,
+      })
 
-      if (routeMode === 'pdf' && currentSession) {
-        // Use PDF chatbot
-        response = await chatbotAPI.queryPDF(currentSession, content)
-      } else if (routeMode === 'rag') {
-        // Use RAG search
-        response = await chatbotAPI.queryRAG(content)
-      } else {
-        // Use unified routing
-        response = await chatbotAPI.unifiedQuery(content, currentSession || undefined)
-      }
-
-      let botContent = response.answer || response.data?.answer || 'No response received'
-
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "bot",
-        content: botContent,
-        timestamp: new Date(),
-        route: response.route || routeMode,
-        category: detectCategory(content),
-      }
-
-      setMessages((prev) => [...prev, botMessage])
-
-      // If translation enabled, translate the response
-      if (translationLanguage !== 'en') {
+      // Update conversation_id if this was a new conversation
+      if (response.conversation_id && response.conversation_id !== currentConversationId) {
+        setCurrentConversationId(response.conversation_id)
+        // Refresh conversations list
         try {
-          setIsTranslating(true)
-          const translated = await chatbotAPI.translate(botContent, translationLanguage)
-          if (translated.success) {
-            const translatedMsg: Message = {
-              id: (Date.now() + 2).toString(),
-              type: "bot",
-              content: `🌍 ${translationLanguage.toUpperCase()}:\n${translated.translated}`,
-              timestamp: new Date(),
-              route: response.route || routeMode,
-            }
-            setMessages((prev) => [...prev, translatedMsg])
-          }
-        } catch (error) {
-          console.error('Translation error:', error)
-        } finally {
-          setIsTranslating(false)
+          const convData = await chatAPI.getConversations(50)
+          setConversations(convData.conversations || [])
+        } catch (e) {
+          console.error('Failed to refresh conversations:', e)
         }
       }
+
+      // Add assistant response
+      addMessage(response)
     } catch (error: any) {
-      console.error('Query error:', error)
-      let errorContent = '❌ Error processing query. Please try again.'
-
-      if (error.response?.status === 422) {
-        errorContent = '⚠️ Invalid request. Check your input and try again.'
-      } else if (error.response?.status === 401) {
-        errorContent = '🔐 Authentication required. Please sign in.'
-      } else if (error.response?.status === 500) {
-        errorContent = '⚠️ Backend error. Please try again in a moment.'
-      } else if (error.message === 'Network Error') {
-        errorContent = '🌐 Cannot connect to server. Ensure backend is running on port 8000.'
-      }
-
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "bot",
-        content: errorContent,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMsg])
+      const errorMessage = getErrorMessage(error)
+      toast.error(errorMessage)
+      addMessage({
+        id: `error-${Date.now()}`,
+        user_id: '',
+        session_id: currentSession?.session_id || null,
+        timestamp: new Date().toISOString(),
+        query: userQuery,
+        response: errorMessage,
+        sources: [],
+      })
     } finally {
-      setIsTyping(false)
+      setLoading(false)
     }
   }
 
-  const handleQuickAction = (prompt: string) => {
-    handleSendMessage(prompt)
-  }
-
-  const handleSessionSelect = async (session: ChatSession) => {
-    setCurrentSession(session.session_id)
-    setCurrentFilename(session.filename)
-    setMessages([])
-    setShowQuickActions(true)
-    setRouteMode('pdf')
+  const handleDeleteChat = async (chatId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return
 
     try {
-      const history = await chatbotAPI.getHistory(session.session_id)
-      if (history.success && history.history.length > 0) {
-        const loadedMessages = history.history.map((msg, idx) => ({
-          id: idx.toString(),
-          type: msg.role as 'user' | 'bot',
-          content: msg.content,
-          timestamp: new Date(),
-          route: 'pdf' as const,
-        }))
-        setMessages(loadedMessages)
-        setShowQuickActions(false)
-      }
-    } catch (error) {
-      console.error('Failed to load session history:', error)
-    }
-  }
-
-  const handleClearSession = async (sessionId: string) => {
-    try {
-      await chatbotAPI.clearSession(sessionId)
-      if (currentSession === sessionId) {
-        setCurrentSession(null)
-        setCurrentFilename(null)
-        setMessages([])
-      }
-      loadSessions()
-    } catch (error) {
-      console.error('Failed to clear session:', error)
-    }
-  }
-
-  const handleStartVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = mediaRecorder
-      audioChunksRef.current = []
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data)
-      }
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' })
-        const audioFile = new File([audioBlob], 'voice-query.mp3', { type: 'audio/mp3' })
-
-        try {
-          const response = await chatbotAPI.voiceQuery(audioFile, currentSession || undefined)
-          handleSendMessage(response.question || 'Voice query processed')
-        } catch (error) {
-          console.error('Voice query error:', error)
-        }
-      }
-
-      mediaRecorder.start()
-      setIsRecording(true)
-    } catch (error) {
-      console.error('Microphone access denied:', error)
-    }
-  }
-
-  const handleStopVoiceRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop()
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
-      setIsRecording(false)
-    }
-  }
-
-  const detectCategory = (query: string): Message['category'] => {
-    const lower = query.toLowerCase()
-    if (lower.includes('cve')) return 'cve'
-    if (lower.includes('remediation') || lower.includes('fix')) return 'remediation'
-    if (lower.includes('exploit') || lower.includes('privilege')) return 'exploit'
-    return 'general'
-  }
-
-  const getCategoryColor = (category?: string) => {
-    switch (category) {
-      case "cve":
-        return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "remediation":
-        return "bg-green-500/20 text-green-400 border-green-500/30"
-      case "exploit":
-        return "bg-orange-500/20 text-orange-400 border-orange-500/30"
-      default:
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30"
-    }
-  }
-
-  const getRouteBadgeColor = (route?: string) => {
-    switch (route) {
-      case 'pdf':
-        return 'bg-purple-500/20 text-purple-400'
-      case 'rag':
-        return 'bg-cyan-500/20 text-cyan-400'
-      default:
-        return 'bg-gray-500/20 text-gray-400'
+      await chatAPI.deleteChat(chatId)
+      setMessages(messages.filter((m) => m.id !== chatId))
+      toast.success('Message deleted')
+    } catch (error: any) {
+      toast.error('Failed to delete message')
     }
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-[calc(100vh-100px)] bg-background">
       {/* Header */}
-      <div className="border-b border-border p-6">
-        <div className="flex items-center space-x-3">
-          <motion.div
-            className="w-10 h-10 bg-gradient-to-br from-red-500 via-purple-600 to-blue-500 rounded-lg flex items-center justify-center"
-            animate={{
-              boxShadow: [
-                "0 0 20px rgba(239, 68, 68, 0.5)",
-                "0 0 20px rgba(59, 130, 246, 0.5)",
-                "0 0 20px rgba(239, 68, 68, 0.5)",
-              ],
-            }}
-            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-          >
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-            >
-              <Bot className="w-6 h-6 text-white" />
-            </motion.div>
-          </motion.div>
-          <div>
-            <motion.h2
-              className="text-2xl font-bold bg-gradient-to-r from-red-400 via-purple-500 to-blue-400 bg-clip-text text-transparent mb-2"
-              animate={{
-                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-              }}
-              transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
-            >
-              XploitEye AI Assistant
-            </motion.h2>
-            <p className="text-muted-foreground">Red & Blue Team Penetration Testing Assistant</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-80 border-r border-border p-4 space-y-4 overflow-y-auto bg-card/50">
-          {/* Capabilities */}
-          <div>
-            <h3 className="font-semibold text-transparent bg-gradient-to-r from-red-400 to-blue-400 bg-clip-text mb-3">
-              Capabilities
-            </h3>
-            <Card className="border-red-500/30 bg-gradient-to-br from-red-500/10 to-blue-500/10">
-              <CardContent className="p-4 space-y-2 text-sm">
-                <div className="text-red-300">🔴 Red Team: CVE Analysis & Exploitation</div>
-                <div className="text-blue-300">🔵 Blue Team: Vulnerability Remediation</div>
-                <div className="text-purple-300">⚡ Risk Assessment & Analysis</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* PDF Upload */}
-          <div>
-            <h3 className="font-semibold text-sm mb-2">📁 Upload Scan Report</h3>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-              variant="outline"
-              className="w-full border-dashed border-purple-500/50 hover:bg-purple-500/10"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              {currentFilename ? 'Change PDF' : 'Upload PDF'}
-            </Button>
-            {currentFilename && (
-              <p className="text-xs text-muted-foreground mt-2 truncate">📄 {currentFilename}</p>
-            )}
-          </div>
-
-          {/* Route Mode */}
-          <div>
-            <h3 className="font-semibold text-sm mb-2">🎯 Chat Mode</h3>
-            <div className="space-y-2">
-              {(['pdf', 'rag', 'unified'] as const).map((mode) => (
-                <label key={mode} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="route"
-                    value={mode}
-                    checked={routeMode === mode}
-                    onChange={(e) => setRouteMode(e.target.value as any)}
-                    disabled={mode === 'pdf' && !currentSession}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">
-                    {mode === 'pdf' ? '📄 PDF Report' : mode === 'rag' ? '📚 Documentation' : '🤖 Auto-Route'}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Translation */}
-          <div>
-            <h3 className="font-semibold text-sm mb-2">🌍 Translation</h3>
-            <select
-              value={translationLanguage}
-              onChange={(e) => setTranslationLanguage(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm"
-            >
-              <option value="en">English (No Translation)</option>
-              <option value="ur">Urdu</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="ar">Arabic</option>
-              <option value="zh">Chinese</option>
-            </select>
-          </div>
-
-          {/* Sessions */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-sm">💬 Chat History</h3>
-              {isLoadingSessions && <span className="text-xs text-muted-foreground">Loading...</span>}
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {sessions.map((session) => (
-                <div
-                  key={session.session_id}
-                  className={`p-2 rounded-md cursor-pointer text-sm transition-colors ${
-                    currentSession === session.session_id
-                      ? 'bg-purple-500/30 border border-purple-500/50'
-                      : 'bg-background border border-border hover:bg-card'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div onClick={() => handleSessionSelect(session)} className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{session.filename}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {new Date(session.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleClearSession(session.session_id)}
-                      className="text-muted-foreground hover:text-red-400 ml-2"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {showQuickActions && messages.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center h-full space-y-6"
+      <div className="border-b border-border p-4 bg-card/50">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            {/* Report Selector Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowReportDropdown(!showReportDropdown)}
+                className={cn(
+                  'flex items-center justify-between w-full max-w-md px-4 py-2 rounded-lg border transition-all text-left bg-background hover:bg-muted/50',
+                  currentSession
+                    ? 'border-primary/50 ring-1 ring-primary/20'
+                    : 'border-border'
+                )}
               >
-                <div className="text-center mb-8">
-                  <p className="text-muted-foreground">
-                    {currentSession
-                      ? 'Ask questions about your uploaded scan report or XploitEye features'
-                      : 'Upload an XploitEye scan report or ask about penetration testing features'}
-                  </p>
+                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                  <FileText className={cn(
+                    'w-4 h-4 flex-shrink-0',
+                    currentSession ? 'text-primary' : 'text-muted-foreground'
+                  )} />
+                  <span className="text-sm font-medium truncate">
+                    {currentSession ? currentSession.scan_report_name : 'Select Report or Use Global KB'}
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl">
-                  {quickActions.map((action, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(139, 92, 246, 0.3)" }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="outline"
-                        className="w-full h-20 p-4 border-purple-500/30 hover:bg-gradient-to-r hover:from-red-500/10 hover:to-blue-500/10 bg-transparent text-left"
-                        onClick={() => handleQuickAction(action.prompt)}
+                <ChevronDown className={cn(
+                  'w-4 h-4 ml-2 flex-shrink-0 transition-transform',
+                  showReportDropdown ? 'rotate-180' : '',
+                  currentSession ? 'text-primary' : 'text-muted-foreground'
+                )} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showReportDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-full max-w-md bg-card border border-border rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                  <button
+                    onClick={handleDeselectReport}
+                    className={cn(
+                      'w-full px-4 py-3 flex items-center justify-between hover:bg-muted transition-colors border-b border-border',
+                      !currentSession && 'bg-muted/50'
+                    )}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      <div className="text-left">
+                        <div className="text-sm font-medium">Global Knowledge Base</div>
+                        <div className="text-xs text-muted-foreground">OWASP, CVE, MITRE, Guides</div>
+                      </div>
+                    </div>
+                    {!currentSession && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+
+                  {sessions.length > 0 ? (
+                    sessions.map((session) => (
+                      <button
+                        key={session.session_id}
+                        onClick={() => handleSelectReport(session)}
+                        className={cn(
+                          'w-full px-4 py-3 flex items-center justify-between hover:bg-muted transition-colors border-b border-border last:border-0',
+                          currentSession?.session_id === session.session_id && 'bg-muted/50'
+                        )}
                       >
-                        <div className="flex items-center space-x-3 w-full">
-                          <motion.div
-                            animate={{ rotate: [0, 5, -5, 0] }}
-                            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, delay: index * 0.2 }}
-                            className="flex-shrink-0"
-                          >
-                            <action.icon className="w-6 h-6 text-purple-400" />
-                          </motion.div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-white mb-1 text-sm">{action.label}</div>
-                            <div className="text-xs text-muted-foreground line-clamp-1">{action.prompt}</div>
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                          <div className="text-left flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {session.scan_report_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(session.created_at)}
+                            </div>
                           </div>
                         </div>
-                      </Button>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            <AnimatePresence>
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`flex space-x-3 max-w-4xl ${message.type === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        message.type === "user"
-                          ? "bg-gradient-to-br from-blue-400 to-blue-600"
-                          : "bg-gradient-to-br from-green-400 to-emerald-600"
-                      }`}
-                    >
-                      {message.type === "user" ? (
-                        <User className="w-4 h-4 text-white" />
-                      ) : (
-                        <Bot className="w-4 h-4 text-white" />
-                      )}
-                    </div>
-                    <div
-                      className={`rounded-lg p-4 max-w-full ${
-                        message.type === "user"
-                          ? "bg-blue-500/20 border border-blue-500/30"
-                          : "bg-card border border-border"
-                      }`}
-                    >
-                      {message.route && message.type === "bot" && (
-                        <Badge className={`mb-2 ${getRouteBadgeColor(message.route)}`}>
-                          {message.route === 'pdf' ? '📄 PDF' : message.route === 'rag' ? '📚 RAG' : '🤖 Unified'}
-                        </Badge>
-                      )}
-                      {message.category && message.type === "bot" && (
-                        <Badge className={`mb-2 ml-2 ${getCategoryColor(message.category)}`}>
-                          {message.category.toUpperCase()}
-                        </Badge>
-                      )}
-                      <div className="whitespace-pre-wrap text-sm break-words markdown-content">
-                        {message.content}
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="text-xs text-muted-foreground">{message.timestamp.toLocaleTimeString()}</div>
-                        {message.type === "bot" && (
-                          <div className="flex space-x-1">
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <ThumbsUp className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <ThumbsDown className="w-3 h-3" />
-                            </Button>
-                          </div>
+                        {currentSession?.session_id === session.session_id && (
+                          <Check className="w-4 h-4 text-primary flex-shrink-0" />
                         )}
-                      </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-center text-sm text-muted-foreground">
+                      No reports uploaded yet
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {isTyping && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
-                <div className="flex space-x-3 max-w-4xl">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <div className="flex space-x-1">
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, delay: 0 }}
-                        className="w-2 h-2 bg-green-400 rounded-full"
-                      />
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, delay: 0.2 }}
-                        className="w-2 h-2 bg-green-400 rounded-full"
-                      />
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, delay: 0.4 }}
-                        className="w-2 h-2 bg-green-400 rounded-full"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </motion.div>
-            )}
-
-            {(isTyping || isTranslating) && (
-              <div className="text-xs text-muted-foreground text-center">
-                {isTranslating ? '🌍 Translating...' : '⏳ Processing...'}
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <div className="border-t border-border p-4">
-            <div className="flex space-x-3">
-              {/* Voice Input */}
-              <Button
-                onClick={isRecording ? handleStopVoiceRecording : handleStartVoiceRecording}
-                variant={isRecording ? 'destructive' : 'outline'}
-                size="sm"
-                title="Click to record voice"
-              >
-                <Mic className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-              </Button>
-
-              {/* Text Input */}
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about your scan report, CVEs, remediation, or XploitEye features..."
-                className="flex-1 min-h-[60px] max-h-32 resize-none border-purple-500/30 focus:border-purple-500/50"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage(input)
-                  }
-                }}
-              />
-
-              {/* Send Button */}
-              <Button
-                onClick={() => handleSendMessage(input)}
-                disabled={!input.trim() || isTyping || isLoading}
-                className="bg-gradient-to-r from-red-500 via-purple-600 to-blue-500 hover:from-red-600 hover:via-purple-700 hover:to-blue-600 self-end"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              )}
             </div>
-            <div className="text-xs text-muted-foreground mt-2 flex items-center justify-between">
-              <span>Press Enter to send, Shift+Enter for new line</span>
-              {currentSession && <span className="text-purple-400">📄 PDF Chat Mode</span>}
-            </div>
+
+            {/* Status Text */}
+            <p className="text-xs text-muted-foreground mt-2 ml-1">
+              {currentSession
+                ? 'Hybrid RAG: 70% Scan Report + 30% Global KB'
+                : 'Querying OWASP, CVE, MITRE, and Security Guides'}
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
+              <Bot className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-2xl font-semibold mb-3">
+              Welcome to XploitEye AI
+            </h3>
+            <p className="text-muted-foreground max-w-md">
+              {currentSession
+                ? 'Ask questions about your scan report. I\'ll analyze vulnerabilities and provide remediation guidance.'
+                : 'Ask questions about cybersecurity topics. I\'ll provide insights from OWASP, CVE, MITRE, and security best practices.'}
+            </p>
+          </div>
+        ) : (
+          messages.map((message, index) => (
+            <div key={message.id || index} className="group">
+              {/* User Query */}
+              <div className="flex items-start space-x-3 mb-6 justify-end">
+                <div className="flex-1 max-w-2xl text-right">
+                  <div className="flex items-center justify-end mb-1 space-x-2">
+                    {message.id && !message.id.startsWith('temp') && !message.id.startsWith('error') && (
+                      <button
+                        onClick={() => handleDeleteChat(message.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all text-destructive hover:text-destructive/80"
+                        title="Delete message"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                    <p className="text-xs text-muted-foreground">You</p>
+                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-none px-4 py-3 inline-block text-left">
+                    <p>{message.query}</p>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+              </div>
+
+              {/* Assistant Response */}
+              {message.response && (
+                <div className="flex items-start space-x-3 max-w-4xl">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-muted-foreground">XploitEye Assistant</p>
+                    </div>
+                    <div className={cn(
+                      "rounded-2xl rounded-tl-none p-6 shadow-sm",
+                      message.id && message.id.startsWith('error')
+                        ? "bg-destructive/10 border border-destructive/20"
+                        : "bg-card border border-border"
+                    )}>
+                      {message.id && message.id.startsWith('error') && (
+                        <div className="flex items-center space-x-2 mb-3 pb-3 border-b border-destructive/20">
+                          <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                          <p className="text-sm font-medium text-destructive">Request Not Processed</p>
+                        </div>
+                      )}
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>
+                          {message.response}
+                        </ReactMarkdown>
+                      </div>
+
+                      {/* Sources */}
+                      {message.sources && message.sources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2">
+                            📚 Sources ({message.sources.length})
+                          </p>
+                          <div className="grid gap-2 grid-cols-1 md:grid-cols-2">
+                            {message.sources.slice(0, 4).map((source, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-muted/50 border border-border rounded p-2 text-xs"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-primary font-medium">
+                                    {source.source === 'user_report' ? '📄 Scan Report' : '📚 Global KB'}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    Score: {(source.score * 100).toFixed(0)}%
+                                  </span>
+                                </div>
+                                {source.metadata?.page && (
+                                  <p className="text-muted-foreground mb-1">Page {source.metadata.page}</p>
+                                )}
+                                <p className="text-muted-foreground line-clamp-2 italic opacity-80">"{source.text}"</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Metadata */}
+                      {message.metadata && (
+                        <div className="mt-3 flex flex-wrap gap-4 text-[10px] text-muted-foreground uppercase tracking-wider">
+                          <span>⚡ {message.metadata.total_time_ms}ms</span>
+                          <span>🔍 {message.metadata.chunks_retrieved} chunks</span>
+                          <span>🤖 {message.metadata.model_used}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
+        {loading && (
+          <div className="flex items-start space-x-3 max-w-3xl">
+            <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <Bot className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <div className="bg-card border border-border rounded-2xl rounded-tl-none p-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                <span className="text-muted-foreground text-sm ml-2">Analyzing cybersecurity knowledge base...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 bg-card/50 border-t border-border">
+        {currentSession ? (
+          <div className="mb-3 flex items-center space-x-2 text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg p-2 max-w-fit">
+            <FileText className="w-3 h-3 flex-shrink-0" />
+            <span>
+              <strong className="font-semibold">{currentSession.scan_report_name}</strong> selected
+            </span>
+          </div>
+        ) : (
+          <div className="mb-3 flex items-center space-x-2 text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 max-w-fit">
+            <Shield className="w-3 h-3 flex-shrink-0" />
+            <span>Global Knowledge Base Mode (General Security Questions)</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex space-x-3">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              currentSession
+                ? `Ask questions about ${currentSession.scan_report_name}...`
+                : 'Ask about vulnerabilities, best practices, OWASP, etc...'
+            }
+            disabled={loading}
+            className="flex-1 px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={loading || !query.trim()}
+            className="px-6 py-3 bg-gradient-to-r from-red-500 via-purple-600 to-blue-500 text-white font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg shadow-purple-500/20"
+          >
+            <Send className="w-5 h-5" />
+            <span className="hidden sm:inline">Send</span>
+          </button>
+        </form>
+        <p className="text-[10px] text-muted-foreground text-center mt-2">
+          XploitEye AI can make mistakes. Verify important security information.
+        </p>
+      </div>
+      <Toaster position="top-right" />
     </div>
   )
 }
@@ -713,7 +461,7 @@ export default function RAGChatbotEnhancedPageWrapper() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <DashboardLayout>
-        <RAGChatbotEnhancedPage />
+        <ChatInterface />
       </DashboardLayout>
     </>
   );
