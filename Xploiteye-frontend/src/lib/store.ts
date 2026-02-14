@@ -60,11 +60,13 @@ interface SessionState {
     removeSession: (sessionId: string) => void
 }
 
+type SetMessagesArg = ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+
 interface ChatState {
     messages: ChatMessage[]
     currentConversationId: string | null
     conversations: Conversation[]
-    setMessages: (messages: ChatMessage[]) => void
+    setMessages: (messages: SetMessagesArg) => void
     addMessage: (message: ChatMessage) => void
     clearMessages: () => void
     setCurrentConversationId: (id: string | null) => void
@@ -112,13 +114,23 @@ export const useSessionStore = create<SessionState>((set) => ({
         })),
 }))
 
+function ensureMessageArray(m: unknown): ChatMessage[] {
+    return Array.isArray(m) ? m : [];
+}
+
 export const useChatStore = create<ChatState>((set) => ({
     messages: [],
     currentConversationId: null,
     conversations: [],
-    setMessages: (messages) => set({ messages }),
+    setMessages: (messagesOrUpdater) =>
+        set((state) => ({
+            messages:
+                typeof messagesOrUpdater === 'function'
+                    ? ensureMessageArray(messagesOrUpdater(ensureMessageArray(state.messages)))
+                    : ensureMessageArray(messagesOrUpdater),
+        })),
     addMessage: (message) =>
-        set((state) => ({ messages: [...state.messages, message] })),
+        set((state) => ({ messages: [...ensureMessageArray(state.messages), message] })),
     clearMessages: () => set({ messages: [], currentConversationId: null }),
     setCurrentConversationId: (id) => set({ currentConversationId: id }),
     setConversations: (conversations) => set({ conversations }),

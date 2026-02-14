@@ -147,6 +147,7 @@ class Settings(BaseSettings):
     
     # Upload Configuration
     max_upload_size_mb: int = Field(default=50)
+    max_upload_size_bytes: int = Field(default=50 * 1024 * 1024)  # 50 MB; used for PDF upload validation
     allowed_file_types: str = Field(default=".pdf")
     upload_rate_limit_per_hour: int = Field(default=10)
     
