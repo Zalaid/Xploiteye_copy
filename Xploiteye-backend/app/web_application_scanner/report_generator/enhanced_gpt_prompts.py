@@ -1,17 +1,18 @@
 import os
 import asyncio
-from groq import Groq
+from groq import AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL_NAME = "openai/gpt-oss-120b"
+# Use Async client to prevent blocking the event loop
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-def _call_groq(prompt, system_content="You are a Lead ISO 27001 Security Auditor."):
+async def _call_groq(prompt, system_content="You are a Lead ISO 27001 Security Auditor."):
     """Helper to call Groq with error handling."""
     try:
-        completion = client.chat.completions.create(
+        completion = await client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": prompt}
@@ -22,6 +23,8 @@ def _call_groq(prompt, system_content="You are a Lead ISO 27001 Security Auditor
         )
         return completion.choices[0].message.content
     except Exception as e:
+        import logging
+        logging.error(f"AI Analysis failed: {e}")
         return f"Analysis generation failed: {str(e)}"
 
 async def generate_executive_summary(scan_data):
@@ -39,7 +42,7 @@ async def generate_executive_summary(scan_data):
     - Do NOT use bullet points or lists in this section.
     - Tone: Authoritative, C-level appropriate.
     """
-    return _call_groq(prompt)
+    return await _call_groq(prompt)
 
 async def generate_compliance_mapping(scan_data):
     prompt = f"""
@@ -55,7 +58,7 @@ async def generate_compliance_mapping(scan_data):
       #### A.14.2 Security in development
     - For each, provide a "Current State", "Evidence of Failure", and "Corrective Action" narrative.
     """
-    return _call_groq(prompt, system_content="You are a Senior ISO 27001 Lead Auditor.")
+    return await _call_groq(prompt, system_content="You are a Senior ISO 27001 Lead Auditor.")
 
 async def generate_remediation_roadmap(scan_data):
     prompt = f"""
@@ -67,7 +70,7 @@ async def generate_remediation_roadmap(scan_data):
     - Break into 10-15 specific project workstreams.
     - For each workstream, use a Section and then Bullets for Action Items, Owners, and Verification.
     """
-    return _call_groq(prompt)
+    return await _call_groq(prompt)
 
 async def generate_finding_deep_dive(finding, target):
     """Generates a deep dive for a single finding."""
@@ -98,7 +101,7 @@ async def generate_finding_deep_dive(finding, target):
     - Use bullet points where appropriate under headings.
     - Keep it strictly technical but readable.
     """
-    return _call_groq(prompt, system_content="You are a Senior Security Analyst.")
+    return await _call_groq(prompt, system_content="You are a Senior Security Analyst.")
 
 def generate_ai_analysis(scan_data):
     # This is kept for backward compatibility if needed, 

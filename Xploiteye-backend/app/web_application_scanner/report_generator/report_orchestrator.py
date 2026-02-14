@@ -203,6 +203,6 @@ async def generate_professional_report(scan_id, json_data, output_path):
 
     # --- Build the PDF ---
     orchestrator_canvas = ReportCanvas(target_url, logo_path)
-    doc.build(story, onFirstPage=orchestrator_canvas, onLaterPages=orchestrator_canvas)
+    await asyncio.to_thread(doc.build, story, onFirstPage=orchestrator_canvas, onLaterPages=orchestrator_canvas)
     
     return output_path

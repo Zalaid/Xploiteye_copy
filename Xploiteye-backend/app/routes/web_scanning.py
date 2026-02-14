@@ -53,9 +53,13 @@ async def get_web_scan_status(
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Check the status and results of a web scan"""
+    logging.info(f"📊 [WebScan] Checking status for ID: {scan_id}")
+    
     if scan_id in web_scan_results:
         result = web_scan_results[scan_id]
+        logging.info(f"📊 [WebScan] Found in memory: {result.get('status')} for user {result.get('user_id')}")
         if result.get("user_id") != str(current_user.id):
+             logging.warning(f"📊 [WebScan] Ownership mismatch: owner is {result.get('user_id')}, requester is {str(current_user.id)}")
              raise HTTPException(status_code=403, detail="Access denied")
         return result
         

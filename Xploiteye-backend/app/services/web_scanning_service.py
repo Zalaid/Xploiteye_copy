@@ -3,6 +3,7 @@ import datetime
 import json
 import socket
 import logging
+import asyncio
 import aiofiles
 from urllib.parse import urlparse
 from typing import Optional, Dict, Any
@@ -31,7 +32,7 @@ async def process_web_scan(scan_id: str, url: str, user_email: Optional[str] = N
         domain = urlparse(url).netloc
         if not domain: domain = url
         try:
-            target_ip = socket.gethostbyname(domain)
+            target_ip = await asyncio.to_thread(socket.gethostbyname, domain)
         except:
             target_ip = "Unknown IP"
             
@@ -53,7 +54,7 @@ async def process_web_scan(scan_id: str, url: str, user_email: Optional[str] = N
         
         # 1. Reconnaissance
         recon = ReconScanner()
-        recon_data = recon.scan(domain)
+        recon_data = await asyncio.to_thread(recon.scan, domain)
         
         # 2. Network Scanning
         network = NetworkScanner()
@@ -61,7 +62,7 @@ async def process_web_scan(scan_id: str, url: str, user_email: Optional[str] = N
         
         # 3. SSL Analysis
         ssl_scanner = SSLScanner()
-        ssl_data = ssl_scanner.scan(domain)
+        ssl_data = await asyncio.to_thread(ssl_scanner.scan, domain)
         
         # 4. Tech Detection
         web_scan_results[scan_id]["status"] = "Analyzing Fingerprints"
